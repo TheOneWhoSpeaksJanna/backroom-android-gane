@@ -46,8 +46,9 @@ jobs:
           cp templates_tmp/templates/* "$TDIR/"
           mkdir -p "$HOME/.config/godot"
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
-      - name: Validate
+      - name: Patch and validate
         run: |
+          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
           test -f godot/project.godot
           test -f godot/Main.tscn
           test -f godot/Main.gd
@@ -55,6 +56,7 @@ jobs:
       - name: Export
         run: |
           set -eux
+          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
           mkdir -p Builds Source
           ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
           test -s Builds/BackroomsLevelZero3D.apk
