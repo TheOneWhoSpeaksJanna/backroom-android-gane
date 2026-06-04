@@ -1,0 +1,70 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - "Builds/**"
+      - "Source/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Backrooms Level Zero APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Create requested output folders
+        run: |
+          mkdir -p Builds Source
+          cp app/build/outputs/apk/debug/app-debug.apk Builds/BackroomsLevelZero.apk
+          zip -r Source/BackroomsLevelZeroProject.zip \
+            app build.gradle settings.gradle README.md BUILD_ANDROID.md CONTROLS.md .gitignore .github \
+            -x "app/build/*" ".gradle/*" ".git/*" "Builds/*" "Source/*"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BackroomsLevelZero-APK
+          path: Builds/BackroomsLevelZero.apk
+
+      - name: Upload source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BackroomsLevelZeroProject-Source
+          path: Source/BackroomsLevelZeroProject.zip
+
+      - name: Commit generated APK and source ZIP
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip
+          git commit -m "Add generated Android APK and source archive" || echo "No generated artifact changes to commit"
+          git push
