@@ -46,42 +46,57 @@ jobs:
           cp templates_tmp/templates/* "$TDIR/"
           mkdir -p "$HOME/.config/godot"
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
-      - name: Patch and validate
+      - name: Validate project
+        shell: bash
         run: |
-          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
+          set -eux
           test -f godot/project.godot
           test -f godot/Main.tscn
           test -f godot/Main.gd
-          ./"${GODOT_BIN}" --headless --path godot --quit
+          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
+          ./"${GODOT_BIN}" --headless --path godot --import --quit
       - name: Export
+        shell: bash
         run: |
           set -eux
           sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
-          mkdir -p Builds Source
+          TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           rm -rf godot/android
           mkdir -p godot/android/build
-          unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d godot/android/build
+          unzip -q "$TDIR/android_source.zip" -d godot/android/build
+          cp "$TDIR/version.txt" godot/android/.build_version
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
-          test -f godot/android/build/build.gradle || find godot/android -maxdepth 3 -type f | sort | head -80
-          cat godot/export_presets.cfg
-          ./"${GODOT_BIN}" --headless --verbose --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
-          test -s Builds/BackroomsLevelZero3D.apk
-          zip -r Source/BackroomsLevelZeroGodotProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
-          test -s Source/BackroomsLevelZeroGodotProject.zip
+          test -f godot/android/.build_version
+          test -f godot/android/build/build.gradle
+          cat godot/android/.build_version
+          mkdir -p Builds Source
+          ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero.apk"
+          test -s Builds/BackroomsLevelZero.apk
+          rm -f Source/BackroomsLevelZeroProject.zip
+          zip -r Source/BackroomsLevelZeroProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*" "godot/android/build/.gradle/*" "godot/android/build/build/*"
+          test -s Source/BackroomsLevelZeroProject.zip
+          ls -lh Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: BackroomsLevelZero3D-APK
-          path: Builds/BackroomsLevelZero3D.apk
+          name: BackroomsLevelZero-APK
+          path: Builds/BackroomsLevelZero.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: BackroomsLevelZeroGodotProject-Source
-          path: Source/BackroomsLevelZeroGodotProject.zip
+          name: BackroomsLevelZeroProject-Source
+          path: Source/BackroomsLevelZeroProject.zip
           if-no-files-found: error
       - name: Commit generated outputs
+        shell: bash
         run: |
+          set -eux
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin main || true
-          git add -f Builds/BackroomsLevelZero3D.apk Source/BackroomsLevelZeroGodotProject.zip
-          git diff --cached --quiet || (git commit -m "Build generated Godot 3D Android APK" && git push)
+          git add -f Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip
+          if git diff --cached --quiet; then
+            echo "No generated Godot outputs changed."
+          else
+            git commit -m "Build generated Godot Android APK"
+            git push
+          fi
