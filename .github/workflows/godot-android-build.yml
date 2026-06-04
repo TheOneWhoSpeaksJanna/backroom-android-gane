@@ -63,7 +63,8 @@ jobs:
           unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d godot/android/build
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
           test -f godot/android/build/build.gradle || find godot/android -maxdepth 3 -type f | sort | head -80
-          ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
+          cat godot/export_presets.cfg
+          ./"${GODOT_BIN}" --headless --verbose --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
           test -s Builds/BackroomsLevelZero3D.apk
           zip -r Source/BackroomsLevelZeroGodotProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
           test -s Source/BackroomsLevelZeroGodotProject.zip
