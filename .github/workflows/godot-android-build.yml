@@ -36,8 +36,8 @@ jobs:
           mkdir -p "$HOME/.android"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
           REL="${GODOT_VERSION}-${GODOT_STATUS}"
-          curl -LFO "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip" --retry 5 --connect-timeout 30
-          curl -LFO "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz" --retry 5 --connect-timeout 30
+          curl -L -f --retry 5 --connect-timeout 30 -o "Godot_v${REL}_linux.x86_64.zip" "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip"
+          curl -L -f --retry 5 --connect-timeout 30 -o "Godot_v${REL}_export_templates.tpz" "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz"
           unzip -q "Godot_v${REL}_linux.x86_64.zip"
           chmod +x "${GODOT_BIN}"
           TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
