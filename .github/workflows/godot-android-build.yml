@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GODOT_VERSION: "4.4.1"
   GODOT_STATUS: "stable"
   GODOT_BIN: "Godot_v4.4.1-stable_linux.x86_64"
@@ -43,10 +44,21 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK packages and debug keystore
         run: |
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.1"
           yes | sdkmanager --licenses >/dev/null
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Download Godot and export templates
         shell: bash
@@ -54,20 +66,23 @@ jobs:
           set -eux
           GODOT_RELEASE="${GODOT_VERSION}-${GODOT_STATUS}"
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_RELEAS}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
           unzip -q "Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
           chmod +x "${GODOT_BIN}"
           mkdir -p "${GODOT_TEMPLATES_DIR}"
           unzip -q "Godot_v${GODOT_RELEASE}_export_templates.tpz" -d templates_tmp
-          cp templates_tmp/templates/* "${GODOT_TEMPLATES_DIR}/"
+          cp templates_tmp/templates/*`"${GODOT_TEMPLATES_DIR}/" >/dev/null 2>&1 || cp templates_tmp/templates/* "${GODOT_TEMPLATES_DIR}/"
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-          export/android/android_sdk_path = "${ANDROID_HOME}"
-          export/android/java_sdk_path = "${JAVA_HOME}"
-          EOF
+          {
+            echo '[gd_resource type="EditorSettings" format=3]'
+            echo ''
+            echo '[resource]'
+            echo "export/android/android_sdk_path = \"${ANDROID_HOME}\""
+            echo "export/android/java_sdk_path = \"${JAVA_HOME}\""
+            echo "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\""
+            echo 'export/android/debug_keystore_user = "androiddebugkey"'
+            echo 'export/android/debug_keystore_pass = "android"'
+          } > "$HOME/.config/godot/editor_settings-4.tres"
 
       - name: Validate Godot project
         run: |
@@ -79,8 +94,9 @@ jobs:
 
       - name: Export Android APK
         run: |
+          set -eux
           mkdir -p Builds Source
-          ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "../Builds/BackroomsLevelZero3D.apk"
+          ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
           test -s Builds/BackroomsLevelZero3D.apk
           zip -r Source/BackroomsLevelZeroGodotProject.zip godot Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md README_GODOT_3D.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
           test -s Source/BackroomsLevelZeroGodotProject.zip
