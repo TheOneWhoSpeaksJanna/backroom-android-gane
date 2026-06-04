@@ -4,7 +4,7 @@ config_version=5
 config/name="Backrooms Level Zero 3D"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.4", "Mobile")
-config/icon="res://icon192.png"
+config/icon="res://icon.svg"
 
 [display]
 window/size/viewport_width=1280
