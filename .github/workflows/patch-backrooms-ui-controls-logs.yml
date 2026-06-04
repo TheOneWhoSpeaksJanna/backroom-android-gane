@@ -1,0 +1,255 @@
+name: Patch Backrooms UI Controls Logs
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Godot script
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("godot/Main.gd")
+          s = p.read_text()
+
+          make_ui_block = '''func make_ui():
+	var layer=CanvasLayer.new(); add_child(layer)
+
+	shade=ColorRect.new(); shade.color=Color(.010,.009,.004,.58); shade.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(shade)
+
+	var bg=Control.new(); bg.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(bg)
+	var base=ColorRect.new(); base.color=Color(.070,.061,.026,.84); base.set_anchors_preset(Control.PRESET_FULL_RECT); bg.add_child(base)
+	for i in range(18):
+		var stripe=ColorRect.new(); stripe.color=Color(.70,.62,.23,.10 if i%2==0 else .18); stripe.position=Vector2(i*82,0); stripe.size=Vector2(34,720); bg.add_child(stripe)
+	for i in range(12):
+		var grime=ColorRect.new(); grime.color=Color(.02,.018,.010,.10); grime.position=Vector2((i*137)%1280, 500+(i*23)%180); grime.size=Vector2(170+(i%4)*35, 10+(i%3)*14); bg.add_child(grime)
+
+	loading_panel=make_panel(layer,Vector2(260,190),Vector2(760,315),Color(.040,.034,.016,.96))
+	var lt=make_label(loading_panel,"BACKROOMS\\nLEVEL ZERO",Vector2(48,36),52,Color(.98,.86,.38)); lt.size=Vector2(660,130); lt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var ll=make_label(loading_panel,"loading fluorescent maze...",Vector2(72,205),28,Color(.82,.76,.48)); ll.size=Vector2(620,60); ll.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+
+	menu_panel=make_panel(layer,Vector2(380,105),Vector2(520,485),Color(.050,.043,.020,.95))
+	var title=make_label(menu_panel,"BACKROOMS\\nLEVEL ZERO",Vector2(34,34),46,Color(.98,.86,.38)); title.size=Vector2(452,125); title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var sub=make_label(menu_panel,"Find the breakers. Reach the strange exit.\\nAvoid what listens in the yellow rooms.",Vector2(44,170),21,Color(.80,.75,.52)); sub.size=Vector2(432,90); sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	start_b=button(menu_panel,"ENTER LEVEL 0",Vector2(112,286),Vector2(296,66)); start_b.pressed.connect(start_game)
+	exit_b=button(menu_panel,"EXIT",Vector2(160,372),Vector2(200,54)); exit_b.pressed.connect(func(): log_event("quit","main menu"); get_tree().quit())
+
+	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",26); hud.add_theme_color_override("font_color",Color(.95,.86,.45)); layer.add_child(hud)
+	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",22); msg_label.add_theme_color_override("font_color",Color(.90,.82,.55)); layer.add_child(msg_label)
+	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=100; bar.show_percentage=false; layer.add_child(bar)
+
+	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(open_pause)
+	sprint_b=button(layer,"SPRINT",Vector2(1050,575),Vector2(170,78)); sprint_b.button_down.connect(func(): sprint=true); sprint_b.button_up.connect(func(): sprint=false)
+
+	pause_panel=make_panel(layer,Vector2(405,122),Vector2(470,470),Color(.040,.035,.018,.97))
+	var pt=make_label(pause_panel,"PAUSED",Vector2(115,32),48,Color(.96,.84,.40)); pt.size=Vector2(240,70); pt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	resume_b=button(pause_panel,"RESUME",Vector2(95,132),Vector2(280,62)); resume_b.pressed.connect(resume_game)
+	restart_b=button(pause_panel,"RESTART",Vector2(95,212),Vector2(280,62)); restart_b.pressed.connect(func(): log_event("restart","pause menu"); get_tree().reload_current_scene())
+	menu_b=button(pause_panel,"MAIN MENU",Vector2(95,292),Vector2(280,62)); menu_b.pressed.connect(back_to_menu)
+	quit_b=button(pause_panel,"QUIT",Vector2(95,370),Vector2(280,54)); quit_b.pressed.connect(func(): log_event("quit","pause menu"); get_tree().quit())
+
+	end_panel=make_panel(layer,Vector2(335,185),Vector2(610,310),Color(.040,.035,.018,.97))
+	var et=make_label(end_panel,"LEVEL 0",Vector2(60,42),46,Color(.96,.84,.40)); et.size=Vector2(490,65); et.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var ed=make_label(end_panel,"Tap restart to try again.",Vector2(70,120),25,Color(.84,.78,.55)); ed.size=Vector2(470,60); ed.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	end_restart_b=button(end_panel,"RESTART",Vector2(185,215),Vector2(240,58)); end_restart_b.pressed.connect(func(): get_tree().reload_current_scene())
+
+	update_hud()
+
+func make_panel(parent,p,s,c):
+	var n=Panel.new(); n.position=p; n.size=s
+	var st=StyleBoxFlat.new(); st.bg_color=c; st.border_color=Color(.68,.57,.23,.92); st.set_border_width_all(2)
+	st.corner_radius_top_left=10; st.corner_radius_top_right=10; st.corner_radius_bottom_left=10; st.corner_radius_bottom_right=10
+	n.add_theme_stylebox_override("panel",st); parent.add_child(n); return n
+
+func make_label(parent,t,p,fs,col):
+	var l=Label.new(); l.text=t; l.position=p; l.add_theme_font_size_override("font_size",fs); l.add_theme_color_override("font_color",col); parent.add_child(l); return l
+'''
+
+          button_block = '''func button(parent,t,p,s):
+	var b:=Button.new(); b.text=t; b.position=p; b.size=s; b.focus_mode=Control.FOCUS_NONE; b.add_theme_font_size_override("font_size",22); b.add_theme_color_override("font_color",Color(.96,.86,.48))
+	var st:=StyleBoxFlat.new(); st.bg_color=Color(.18,.15,.055,.90); st.border_color=Color(.78,.65,.25,.95); st.set_border_width_all(2)
+	st.corner_radius_top_left=8; st.corner_radius_top_right=8; st.corner_radius_bottom_left=8; st.corner_radius_bottom_right=8
+	var pr:StyleBoxFlat=st.duplicate(); pr.bg_color=Color(.34,.28,.085,.98)
+	b.add_theme_stylebox_override("normal",st); b.add_theme_stylebox_override("hover",st); b.add_theme_stylebox_override("pressed",pr)
+	parent.add_child(b); return b
+'''
+
+          physics_block = '''func _physics_process(delta):
+	if state==State.LOADING:
+		loading_t-=delta
+		if loading_t<=0:
+			state=State.TITLE
+			show("Tap ENTER LEVEL 0 to begin.")
+			log_event("loading_complete","title menu shown")
+		update_hud(); return
+	if state==State.PLAY:
+		var key=Vector2.ZERO
+		if Input.is_key_pressed(KEY_A): key.x-=1
+		if Input.is_key_pressed(KEY_D): key.x+=1
+		if Input.is_key_pressed(KEY_W): key.y+=1
+		if Input.is_key_pressed(KEY_S): key.y-=1
+		var mv=move if key.length()<.1 else key.normalized()
+		move_player(mv,delta); move_monster(delta); check_objectives()
+		if player.global_position.y < -4.0:
+			player.global_position=cell_to_world(Vector2i(1,1))+Vector3(0,.35,0); player.velocity=Vector3.ZERO
+			show("The carpet drops away. Level 0 puts you back."); log_event("void_recovery",str(player.global_position))
+		if player.global_position.distance_to(monster.global_position)<1.1:
+			state=State.CAUGHT; show("It found you."); log_event("caught","player=%s monster=%s" % [str(player.global_position),str(monster.global_position)])
+	if msg_t>0: msg_t-=delta
+	log_tick+=delta
+	if state==State.PLAY and log_tick>=3.0:
+		log_tick=0.0; log_event("runtime","pos=%s stamina=%.2f objective=%d/3" % [str(player.global_position),stamina,count])
+	update_hud()
+'''
+
+          move_player_block = '''func move_player(mv,delta):
+	player.rotate_y(-look.x*.0038); pitch=clamp(pitch+look.y*-.0033,deg_to_rad(-80),deg_to_rad(80)); cam.rotation.x=pitch; look=Vector2.ZERO
+	var wish=player.global_transform.basis*Vector3(mv.x,0,-mv.y); wish.y=0
+	if wish.length()>1: wish=wish.normalized()
+	var run=sprint and wish.length()>.05 and stamina>0.0
+	if run:
+		stamina=max(0.0,stamina-delta*.11)
+		if stamina<=0.0: sprint=false
+	elif wish.length()<.05 and not sprint:
+		stamina=min(1.0,stamina+delta*.20)
+	var sp=5.15 if run else 3.2
+	player.velocity.x=wish.x*sp; player.velocity.z=wish.z*sp; player.velocity.y=-.1 if player.is_on_floor() else player.velocity.y-18*delta
+	player.move_and_slide()
+	if run: alert=min(1,alert+delta*.25)
+'''
+
+          input_block = '''func _input(e):
+	if e is InputEventMouseMotion and OS.get_name()!="Android" and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY:
+		look+=e.relative
+	if e is InputEventScreenTouch:
+		var p=e.position
+		if e.pressed:
+			if is_ui_point(p): return
+			if state==State.TITLE or state==State.LOADING: return
+			if state==State.WIN or state==State.CAUGHT: return
+			if state!=State.PLAY: return
+			var screen=get_viewport().get_visible_rect().size
+			if p.x<screen.x*.45 and joy_id==-1:
+				joy_id=e.index; joy_base=p
+			elif p.x>=screen.x*.50 and look_id==-1:
+				look_id=e.index
+		else:
+			if e.index==joy_id:
+				joy_id=-1; move=Vector2.ZERO
+			if e.index==look_id:
+				look_id=-1
+			if e.index==sprint_id:
+				sprint=false; sprint_id=-1
+	elif e is InputEventScreenDrag:
+		if state!=State.PLAY: return
+		if e.index==joy_id:
+			var r:float=min(get_viewport().get_visible_rect().size.y*.16,150.0); var d=e.position-joy_base
+			if d.length()>r: d=d.normalized()*r
+			move=Vector2(d.x/r,-d.y/r)
+		elif e.index==look_id:
+			look+=e.relative
+'''
+
+          update_hud_block = '''func update_hud():
+	hud.text=objective(); msg_label.text=msg if msg_t>0 else ""; bar.value=stamina*100.0
+	var loading=state==State.LOADING; var title=state==State.TITLE; var play=state==State.PLAY; var pause=state==State.PAUSE; var ended=state==State.WIN or state==State.CAUGHT
+	if shade: shade.visible=loading or title or pause or ended
+	if loading_panel: loading_panel.visible=loading
+	if menu_panel: menu_panel.visible=title
+	if pause_panel: pause_panel.visible=pause
+	if end_panel: end_panel.visible=ended
+	pause_b.visible=play or pause; sprint_b.visible=play; bar.visible=play
+	hud.visible=not loading and not title; msg_label.visible=not loading and not title
+	pause_rect=Rect2(pause_b.position,pause_b.size); sprint_rect=Rect2(sprint_b.position,sprint_b.size)
+'''
+
+          objective_controls_block = '''func objective():
+	if state==State.LOADING: return "Backrooms Level Zero\\nLoading..."
+	if state==State.TITLE: return "Backrooms Level Zero"
+	if state==State.PAUSE: return "Paused"
+	if state==State.WIN: return "Escaped Level 0."
+	if state==State.CAUGHT: return "Caught. Try again."
+	if count<3: return "Objective: activate breakers %d/3"%count
+	return "Objective: reach the strange exit door"
+
+func start_game():
+	state=State.PLAY; show("Objective: activate 3 red breaker boxes."); log_event("start_game",str(player.global_position))
+
+func open_pause():
+	if state==State.PLAY:
+		state=State.PAUSE; sprint=false; log_event("pause","opened"); update_hud()
+
+func resume_game():
+	if state==State.PAUSE:
+		state=State.PLAY; log_event("pause","resume"); update_hud()
+
+func back_to_menu():
+	if state==State.PAUSE:
+		state=State.TITLE; sprint=false; move=Vector2.ZERO; look=Vector2.ZERO; log_event("main_menu","returned from pause"); update_hud()
+
+func toggle_pause():
+	if state==State.PLAY: open_pause()
+	elif state==State.PAUSE: resume_game()
+
+func show(t):
+	msg=t; msg_t=4
+
+func show_msg(t):
+	show(t)
+
+func is_ui_point(p):
+	for b in [start_b,exit_b,pause_b,sprint_b,resume_b,restart_b,menu_b,quit_b,end_restart_b]:
+		if b and b.visible and b.get_global_rect().has_point(p): return true
+	if pause_panel and pause_panel.visible and pause_panel.get_global_rect().has_point(p): return true
+	if menu_panel and menu_panel.visible and menu_panel.get_global_rect().has_point(p): return true
+	if end_panel and end_panel.visible and end_panel.get_global_rect().has_point(p): return true
+	return false
+
+func setup_logging():
+	var d=DirAccess.open("user://")
+	if d: d.make_dir_recursive("BackroomsLevelZeroLogs")
+	var stamp=Time.get_datetime_string_from_system(false,true).replace(":","-").replace(" ","_")
+	log_path="user://BackroomsLevelZeroLogs/session_%s.log"%stamp
+	log_file=FileAccess.open(log_path,FileAccess.WRITE)
+	log_event("log_open","path=%s"%log_path)
+
+func log_event(tag,text=""):
+	var line="[%s] %s %s"%[Time.get_datetime_string_from_system(false,true),tag,text]
+	print(line)
+	if log_file:
+		log_file.store_line(line); log_file.flush()
+'''
+
+          s=s.replace("enum State { TITLE, PLAY, PAUSE, WIN, CAUGHT }", "enum State { LOADING, TITLE, PLAY, PAUSE, WIN, CAUGHT }")
+          s=s.replace("var state:=State.TITLE", "var state:=State.LOADING")
+          if "var loading_panel:Panel" not in s:
+              s=s.replace("var exit_b:Button\nvar pause_rect", "var exit_b:Button\nvar resume_b:Button\nvar restart_b:Button\nvar menu_b:Button\nvar quit_b:Button\nvar end_restart_b:Button\nvar loading_panel:Panel\nvar menu_panel:Panel\nvar pause_panel:Panel\nvar end_panel:Panel\nvar shade:ColorRect\nvar log_file:FileAccess\nvar log_path:=\"\"\nvar log_tick:=0.0\nvar pause_rect")
+          if "setup_logging()" not in s:
+              s=s.replace("rng.seed=19740416\n\tmake_materials()", "rng.seed=19740416\n\tsetup_logging()\n\tlog_event(\"ready\",\"startup\")\n\tmake_materials()")
+          s=re.sub(r"func make_ui\(\):.*?func button\(parent,t,p,s\):", make_ui_block+"\nfunc button(parent,t,p,s):", s, flags=re.S)
+          s=re.sub(r"func button\(parent,t,p,s\):.*?return b\n", button_block, s, flags=re.S)
+          s=re.sub(r"func _physics_process\(delta\):.*?func move_player\(mv,delta\):", physics_block+"\nfunc move_player(mv,delta):", s, flags=re.S)
+          s=re.sub(r"func move_player\(mv,delta\):.*?func move_monster\(delta\):", move_player_block+"\nfunc move_monster(delta):", s, flags=re.S)
+          s=re.sub(r"func _input\(e\):.*?func update_hud\(\):", input_block+"\nfunc update_hud():", s, flags=re.S)
+          s=re.sub(r"func update_hud\(\):.*?func objective\(\):", update_hud_block+"\nfunc objective():", s, flags=re.S)
+          s=re.sub(r"func objective\(\):.*?func is_open\(c\):", objective_controls_block+"\nfunc is_open(c):", s, flags=re.S)
+          p.write_text(s)
+
+          pg=Path("godot/project.godot")
+          t=pg.read_text()
+          if "boot_splash/show_image=false" not in t:
+              t=t.replace("[application]\n","[application]\nboot_splash/show_image=false\nboot_splash/bg_color=Color(0.018, 0.016, 0.007, 1)\n",1)
+          pg.write_text(t)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add godot/Main.gd godot/project.godot
+          git diff --cached --quiet || (git commit -m "Polish Backrooms UI controls stamina and logs" && git push)
