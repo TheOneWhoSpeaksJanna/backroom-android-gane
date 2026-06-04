@@ -2,7 +2,7 @@ name: Build Godot 3D Android APK
 on:
   push:
     branches: [main]
-    paths: [godot/**, .github/workflows/godot-android-build.yml, README_GODOT_3D.md, Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md]
+    paths: ["godot/**", ".github/workflows/godot-android-build.yml", "README_GODOT_3D.md", "Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -10,70 +10,54 @@ concurrency:
   group: godot-android-${{ github.ref }}
   cancel-in-progress: true
 env:
-  GODOT_VERSION: 4.4.1
-  GODOT_STATUS: stable
+  GODOT_RELEASE: 4.4.1-stable
   GODOT_BIN: Godot_v4.4.1-stable_linux.x86_64
   ANDROID_HOME: /usr/local/lib/android/sdk
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Build true 3D Godot Android APK
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-      - name: Install tooling
-        shell: bash
+          java-version: "17"
+      - name: Tooling
         run: |
           set -eux
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          mkdir -p "$HOME/.android"
+          mkdir -p "$HOME/.android" "$HOME/.config/godot"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
-          REL="${GODOT_VERSION}-${GODOT_STATUS}"
-          curl -L -f --retry 5 --connect-timeout 30 -o "Godot_v${REL}_linux.x86_64.zip" "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip"
-          curl -L -f --retry 5 --connect-timeout 30 -o "Godot_v${REL}_export_templates.tpz" "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz"
-          unzip -q "Godot_v${REL}_linux.x86_64.zip"
-          chmod +x "${GODOT_BIN}"
+          curl -L -f --retry 5 -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          curl -L -f --retry 5 -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          unzip -q godot.zip
+          chmod +x "$GODOT_BIN"
           TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           mkdir -p "$TDIR"
-          unzip -q "Godot_v${REL}_export_templates.tpz" -d templates_tmp
-          cp templates_tmp/templates/* "$TDIR/"
-          mkdir -p "$HOME/.config/godot"
+          unzip -q templates.tpz -d t
+          cp t/templates/* "$TDIR/"
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
-      - name: Validate project
-        shell: bash
+      - name: Validate and export
         run: |
           set -eux
           test -f godot/project.godot
           test -f godot/Main.tscn
           test -f godot/Main.gd
           sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
-          ./"${GODOT_BIN}" --headless --path godot --import --quit
-      - name: Export
-        shell: bash
-        run: |
-          set -eux
-          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
+          ./"$GODOT_BIN" --headless --path godot --import --quit
           TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           rm -rf godot/android
           mkdir -p godot/android/build
           unzip -q "$TDIR/android_source.zip" -d godot/android/build
           cp "$TDIR/version.txt" godot/android/.build_version
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
-          test -f godot/android/.build_version
-          test -f godot/android/build/build.gradle
-          cat godot/android/.build_version
           mkdir -p Builds Source
-          ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero.apk"
+          ./"$GODOT_BIN" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero.apk"
           test -s Builds/BackroomsLevelZero.apk
-          rm -f Source/BackroomsLevelZeroProject.zip
-          zip -r Source/BackroomsLevelZeroProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*" "godot/android/build/.gradle/*" "godot/android/build/build/*"
+          rm -rf godot/android godot/.godot
+          zip -r Source/BackroomsLevelZeroProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
           test -s Source/BackroomsLevelZeroProject.zip
           ls -lh Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip
       - uses: actions/upload-artifact@v4
@@ -86,17 +70,11 @@ jobs:
           name: BackroomsLevelZeroProject-Source
           path: Source/BackroomsLevelZeroProject.zip
           if-no-files-found: error
-      - name: Commit generated outputs
-        shell: bash
+      - name: Publish release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -eux
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main || true
-          git add -f Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip
-          if git diff --cached --quiet; then
-            echo "No generated Godot outputs changed."
-          else
-            git commit -m "Build generated Godot Android APK"
-            git push
-          fi
+          TAG="godot-level-zero-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" Builds/BackroomsLevelZero.apk Source/BackroomsLevelZeroProject.zip --title "Backrooms Level Zero Godot Build ${GITHUB_RUN_NUMBER}" --notes "Generated APK and source ZIP from ${GITHUB_SHA}." --latest
