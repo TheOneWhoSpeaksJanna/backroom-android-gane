@@ -140,7 +140,7 @@ func make_ui():
 	var bg=ColorRect.new(); bg.color=Color(.05,.045,.02,.72); bg.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(bg)
 	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",28); hud.add_theme_color_override("font_color",Color(.95,.86,.45)); layer.add_child(hud)
 	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",22); msg_label.add_theme_color_override("font_color",Color(.9,.82,.55)); layer.add_child(msg_label)
-	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=100; layer.add_child(bar)
+	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=10000; layer.add_child(bar)
 	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(open_pause)
 	sprint_b=button(layer,"SPRINT",Vector2(1050,575),Vector2(170,78)); sprint_b.button_down.connect(func(): sprint=true); sprint_b.button_up.connect(func(): sprint=false)
 	start_b=button(layer,"ENTER LEVEL 0",Vector2(490,420),Vector2(300,70)); start_b.pressed.connect(start_game)
