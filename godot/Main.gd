@@ -1,10 +1,10 @@
 extends Node3D
 
-enum State { TITLE, PLAY, PAUSE, WIN, CAUGHT }
+enum State { LOADING, TITLE, PLAY, PAUSE, WIN, CAUGHT }
 const W:=11
 const H:=11
 const CELL:=4.0
-var state:=State.TITLE
+var state:=State.LOADING
 var open:={}
 var rng:=RandomNumberGenerator.new()
 var player:CharacterBody3D
@@ -25,6 +25,7 @@ var sprint_id:=-1
 var joy_base:=Vector2.ZERO
 var msg:="Tap START to enter Level 0"
 var msg_t:=4.0
+var loading_t:=1.25
 var monster_target:=Vector3.ZERO
 var alert:=0.0
 var hud:Label
@@ -120,30 +121,35 @@ func add_chair(p):
 
 func make_player():
 	player=CharacterBody3D.new(); add_child(player); player.global_position=cell_to_world(Vector2i(1,1))+Vector3(0,.05,0)
-	var cs:=CollisionShape3D.new(); var cap:=CapsuleShape3D.new(); cap.height=1.55; cap.radius=.32; cs.shape=cap; player.add_child(cs)
+	var cs:=CollisionShape3D.new(); var cap:=CapsuleShape3D.new(); cap.height=1.55; cap.radius=.32; cs.shape=cap; cs.position=Vector3(0,.85,0); player.add_child(cs)
 	cam=Camera3D.new(); cam.position=Vector3(0,1.62,0); cam.fov=72; player.add_child(cam)
 	box(cam,Vector3(-.35,-.35,-.85),Vector3(.18,.18,.75),yellow); box(cam,Vector3(.35,-.35,-.85),Vector3(.18,.18,.75),yellow)
 
 func make_monster():
 	monster=CharacterBody3D.new(); add_child(monster); monster.global_position=cell_to_world(Vector2i(8,8))
-	var cs:=CollisionShape3D.new(); var cap:=CapsuleShape3D.new(); cap.height=2.1; cap.radius=.32; cs.shape=cap; monster.add_child(cs)
+	var cs:=CollisionShape3D.new(); var cap:=CapsuleShape3D.new(); cap.height=2.1; cap.radius=.32; cs.shape=cap; cs.position=Vector3(0,1.05,0); monster.add_child(cs)
 	box(monster,Vector3(0,1.05,0),Vector3(.45,1.7,.35),black); box(monster,Vector3(0,2.05,0),Vector3(.34,.38,.34),black)
 	box(monster,Vector3(-.35,1,0),Vector3(.1,1.3,.1),black); box(monster,Vector3(.35,1,0),Vector3(.1,1.3,.1),black)
 
 func make_ui():
 	var layer=CanvasLayer.new(); add_child(layer)
-	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",30); layer.add_child(hud)
-	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",24); layer.add_child(msg_label)
+	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",28); hud.add_theme_color_override("font_color",Color(.95,.86,.45)); layer.add_child(hud)
+	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",22); msg_label.add_theme_color_override("font_color",Color(.9,.82,.55)); layer.add_child(msg_label)
 	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=1; layer.add_child(bar)
 	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(toggle_pause)
 	sprint_b=button(layer,"SPRINT",Vector2(1050,575),Vector2(170,78)); sprint_b.button_down.connect(func(): sprint=true); sprint_b.button_up.connect(func(): sprint=false)
-	start_b=button(layer,"START LEVEL 0",Vector2(490,420),Vector2(300,70)); start_b.pressed.connect(start_game)
+	start_b=button(layer,"ENTER LEVEL 0",Vector2(490,420),Vector2(300,70)); start_b.pressed.connect(start_game)
 	exit_b=button(layer,"EXIT",Vector2(500,360),Vector2(280,58)); exit_b.pressed.connect(func(): get_tree().quit())
 
 func button(parent,t,p,s):
 	var b:=Button.new(); b.text=t; b.position=p; b.size=s; b.focus_mode=Control.FOCUS_NONE; parent.add_child(b); return b
 
 func _physics_process(delta):
+	if state==State.LOADING:
+		loading_t-=delta
+		if loading_t<=0:
+			state=State.TITLE; show("Use headphones if possible.")
+		update_hud(); return
 	if state==State.PLAY:
 		var key=Vector2.ZERO
 		if Input.is_key_pressed(KEY_A): key.x-=1
@@ -152,6 +158,8 @@ func _physics_process(delta):
 		if Input.is_key_pressed(KEY_S): key.y-=1
 		var mv=move if key.length()<.1 else key.normalized()
 		move_player(mv,delta); move_monster(delta); check_objectives()
+		if player.global_position.y < -4.0:
+			player.global_position=cell_to_world(Vector2i(1,1))+Vector3(0,.05,0); player.velocity=Vector3.ZERO; show("The carpet drops away. Level 0 puts you back.")
 		if player.global_position.distance_to(monster.global_position)<1.1: state=State.CAUGHT; show("It found you.")
 	if msg_t>0: msg_t-=delta
 	update_hud()
@@ -161,8 +169,11 @@ func move_player(mv,delta):
 	var wish=player.global_transform.basis*Vector3(mv.x,0,-mv.y); wish.y=0
 	if wish.length()>1: wish=wish.normalized()
 	var run=sprint and wish.length()>.05 and stamina>.05
-	stamina=max(0,stamina-delta*.24) if run else min(1,stamina+delta*.17)
-	var sp=5.25 if run else 3.35
+	if run:
+		stamina=max(0,stamina-delta*.16)
+	elif wish.length()<.05:
+		stamina=min(1,stamina+delta*.22)
+	var sp=5.15 if run else 3.2
 	player.velocity.x=wish.x*sp; player.velocity.z=wish.z*sp; player.velocity.y=-.1 if player.is_on_floor() else player.velocity.y-18*delta
 	player.move_and_slide()
 	if run: alert=min(1,alert+delta*.25)
@@ -189,7 +200,7 @@ func _input(e):
 	if e is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY: look+=e.relative
 	if e is InputEventScreenTouch:
 		if e.pressed:
-			if state==State.TITLE: start_game(); return
+			if state==State.TITLE: return
 			if state==State.WIN or state==State.CAUGHT: get_tree().reload_current_scene(); return
 			var p=e.position
 			if pause_rect.has_point(p): toggle_pause(); return
@@ -214,7 +225,7 @@ func update_hud():
 	pause_rect=Rect2(pause_b.position,pause_b.size); sprint_rect=Rect2(sprint_b.position,sprint_b.size)
 
 func objective():
-	if state==State.TITLE: return "Backrooms Level Zero 3D"
+	if state==State.TITLE: return "Backrooms Level Zero"
 	if state==State.WIN: return "Escaped Level 0. Tap to restart."
 	if state==State.CAUGHT: return "Caught. Tap to retry."
 	if count<3: return "Objective: activate breakers %d/3"%count

@@ -1,6 +1,8 @@
 config_version=5
 
 [application]
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.018, 0.016, 0.007, 1)
 config/name="Backrooms Level Zero 3D"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.4", "Mobile")
