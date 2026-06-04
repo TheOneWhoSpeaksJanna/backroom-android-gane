@@ -31,7 +31,7 @@ jobs:
         run: |
           set -eux
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           mkdir -p "$HOME/.android"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
@@ -61,6 +61,7 @@ jobs:
           rm -rf godot/android
           mkdir -p godot/android/build
           unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d godot/android/build
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
           test -f godot/android/build/build.gradle || find godot/android -maxdepth 3 -type f | sort | head -80
           ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
           test -s Builds/BackroomsLevelZero3D.apk
