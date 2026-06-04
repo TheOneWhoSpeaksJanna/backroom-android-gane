@@ -1,5 +1,8 @@
-name: Patch Collision and Backrooms UI
+name: Patch Collision
 on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/patch-collision-ui.yml"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -8,35 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch Godot script
-        run: |
-          python3 <<'PY'
-          from pathib import Path
-          import re
-          p=Path("godot/Main.gd")
-          s=p.read_text()
-          box_new = """func box(parent,pos,size,material,collidable:=true):
-\tvar m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos
-\tif collidable and not (parent is CharacterBody3D) and not (parent is Camera3D):
-\t\tvar body:=StaticBody3D.new(); var shape:=CollisionShape3D.new(); var bs:=BoxShape3D.new()
-\t\tbs.size=size; shape.shape=bs; body.add_child(shape); parent.add_child(body); body.position=pos
-\treturn m
-"""
-          s=re.sub(r"func box\(parent,pos,size,material\):\n\tvar m=MeshInstance3D\.new\(\); var b=BoxMesh\.new\(\); b\.size=size; m\.mesh=b; m\.material_override=material; parent\.add_child\(m\); m\.position=pos; return m\n", box_new, s)
-          s=s.replace('var msg:="Tap START to enter Level 0"', 'var msg:="BACKROOMS LEVEL ZERO\\nloading fluorescent maze..."')
-          s=s.replace('if state==State.LOADING:\n\t\tloading_t-=delta', 'if state==State.LOADING:\n\t\tmsg="BACKROOMS LEVEL ZERO\\nloading fluorescent maze..."\n\t\tloading_t-=delta')
-          s=s.replace('if state==State.TITLE: return "Backrooms Level Zero"', 'if state==State.LOADING: return "Backrooms Level Zero\\nLoading..."\n\tif state==State.TITLE: return "Backrooms Level Zero"')
-          s=s.replace('b.focus_mode=Control.FOCUS_NONE; parent.add_child(b); return b', 'b.focus_mode=Control.FOCUS_NONE; b.add_theme_font_size_override("font_size",22); b.add_theme_color_override("font_color",Color(.96,.86,.48)); parent.add_child(b); return b')
-          p.write_text(s)
-          pg=Path("godot/project.godot")
-          t=pg.read_text()
-          if "boot_splash/show_image=false" not in t:
-              t=t.replace("[application]\n","[application]\nboot_splash/show_image=false\nboot_splash/bg_color=Color(0.018, 0.016, 0.007, 1)\n")
-          pg.write_text(t)
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('godot/Main.gd').read_text()
+          old='func box(parent,pos,size,material):\n\tvar m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos; return m\n'
+          new='func box(parent,pos,size,material,collidable:=true):\n\tvar m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos\n\tif collidable and not (parent is CharacterBody3D) and not (parent is Camera3D):\n\t\tvar body:=StaticBody3D.new(); var shape:=CollisionShape3D.new(); var bs:=BoxShape3D.new()\n\t\tbs.size=size; shape.shape=bs; body.add_child(shape); parent.add_child(body); body.position=pos\n\treturn m\n'
+          s=s.replace(old,new)
+          Path('godot/Main.gd').write_text(s)
           PY
-      - name: Commit patch
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add godot/Main.gd godot/project.godot
-          git diff --cached --quiet || (git commit -m "Fix floor collisions and polish loading UI" && git push)
+          git add godot/Main.gd
+          git diff --cached --quiet || (git commit -m "Add collision bodies to Godot boxes" && git push)
