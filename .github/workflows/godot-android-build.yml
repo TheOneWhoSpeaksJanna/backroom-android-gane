@@ -14,11 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GODOT_VERSION: "4.4.1"
   GODOT_STATUS: "stable"
   GODOT_BIN: "Godot_v4.4.1-stable_linux.x86_64"
   TEMPLATES_DIR: "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+  ANDROID_HOME: "/usr/local/lib/android/sdk"
 
 jobs:
   build:
@@ -34,19 +34,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install Android and Godot
         shell: bash
         run: |
           set -eux
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          yes | sdkmanager --licenses >/dev/null
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
           mkdir -p "$HOME/.android"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
           REL="${GODOT_VERSION}-${GODOT_STATUS}"
-          curl -LFO "Godot_v${REL}_linux.x86_64.zip" --retry 5 --connect-timeout 30 "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip"
-          curl -LFO "Godot_v${REL}_export_templates.tpz" --retry 5 --connect-timeout 30 "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz"
+          curl -LFO "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip" --retry 5 --connect-timeout 30
+          curl -LFO "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz" --retry 5 --connect-timeout 30
           unzip -q "Godot_v${REL}_linux.x86_64.zip"
           chmod +x "${GODOT_BIN}"
           mkdir -p "${TEMPLATES_DIR}"
