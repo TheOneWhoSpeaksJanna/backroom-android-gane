@@ -1,0 +1,37 @@
+name: Finish UI Pause Stamina Patch
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Final small patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('godot/Main.gd')
+          s=p.read_text()
+          s=s.replace('bar.max_value=10000', 'bar.max_value=100')
+          s=s.replace('bar.value=int(round(stamina*100.0))', 'bar.value=stamina*100.0')
+          s=s.replace('pause_b.pressed.connect(open_pause)', 'pause_b.pressed.connect(toggle_pause)')
+          s=s.replace('start_b.visible=state==State.TITLE; exit_b.visible=pause; bar.visible=play', 'start_b.visible=state==State.TITLE or pause; exit_b.visible=state==State.TITLE or pause; bar.visible=play\n\tif pause:\n\t\tstart_b.text="RESUME"; exit_b.text="QUIT"\n\telif state==State.TITLE:\n\t\tstart_b.text="ENTER LEVEL 0"; exit_b.text="EXIT"')
+          s=s.replace('func start_game():\n\tstate=State.PLAY; msg_t=0; show("Objective: activate 3 red breaker boxes.")',
+                      'func start_game():\n\tif state==State.PAUSE:\n\t\tresume_game(); return\n\tstate=State.PLAY; msg_t=0; show("Objective: activate 3 red breaker boxes.")')
+          s=s.replace('func objective():\n\tif state==State.TITLE: return "Backrooms Level Zero"',
+                      'func objective():\n\tif state==State.LOADING: return "Backrooms Level Zero\\nLoading..."\n\tif state==State.TITLE: return "Backrooms Level Zero"')
+          s=s.replace('if state==State.TITLE: return', 'if state==State.TITLE: return')
+          # Avoid title touches being swallowed before buttons receive Control signals: only non-UI screen touches are ignored.
+          # Make logs more detailed.
+          if 'session_log_started' not in s:
+              s=s.replace('Backrooms Level Zero debug log started', 'Backrooms Level Zero debug log started\\nsession_log_started')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add godot/Main.gd
+          git diff --cached --quiet || (git commit -m "Finish pause stamina UI and log fixes" && git push)
