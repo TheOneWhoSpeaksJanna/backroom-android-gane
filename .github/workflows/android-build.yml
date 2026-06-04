@@ -6,6 +6,10 @@ on:
     paths-ignore:
       - "Builds/**"
       - "Source/**"
+      - "godot/**"
+      - "README_GODOT_3D.md"
+      - "Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md"
+      - ".github/workflows/godot-android-build.yml"
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
