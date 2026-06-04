@@ -40,13 +40,13 @@ jobs:
         shell: bash
         run: |
           set -eux
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           yes | sdkmanager --licenses >/dev/null
           mkdir -p "$HOME/.android"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
           REL="${GODOT_VERSION}-${GODOT_STATUS}"
-          wget -q "https://github.com/godotengine/godot-builds/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip"
-          wget -q "https://github.com/godotengine/godot-builds/releases/download/${REL}/Godot_v${REL}_export_templates.tpz"
+          curl -LFO "Godot_v${REL}_linux.x86_64.zip" --retry 5 --connect-timeout 30 "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_linux.x86_64.zip"
+          curl -LFO "Godot_v${REL}_export_templates.tpz" --retry 5 --connect-timeout 30 "https://github.com/godotengine/godot/releases/download/${REL}/Godot_v${REL}_export_templates.tpz"
           unzip -q "Godot_v${REL}_linux.x86_64.zip"
           chmod +x "${GODOT_BIN}"
           mkdir -p "${TEMPLATES_DIR}"
