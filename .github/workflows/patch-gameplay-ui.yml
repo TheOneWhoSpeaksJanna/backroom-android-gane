@@ -1,0 +1,136 @@
+name: Patch Gameplay UI Fixes
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Godot gameplay bugs and UI
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("godot/Main.gd")
+          s = p.read_text()
+
+          s = s.replace("enum State { TITLE, PLAY, PAUSE, WIN, CAUGHT }", "enum State { LOADING, TITLE, PLAY, PAUSE, WIN, CAUGHT }")
+          s = s.replace("var state:=State.TITLE", "var state:=State.LOADING")
+          if "var loading_t" not in s:
+              s = s.replace('var msg_t:=4.0\n', 'var msg_t:=4.0\nvar loading_t:=1.45\n')
+
+          for decl in [
+              "var menu_panel:Panel",
+              "var loading_panel:Panel",
+              "var pause_panel:Panel",
+              "var fade_rect:ColorRect",
+              "var title_text:Label",
+              "var load_text:Label",
+              "var resume_b:Button",
+              "var restart_b:Button",
+          ]:
+              if decl not in s:
+                  s = s.replace("var sprint_b:Button\n", "var sprint_b:Button\n" + decl + "\n", 1)
+
+          s = s.replace("cs.shape=cap; player.add_child(cs)", "cs.shape=cap; cs.position=Vector3(0,.85,0); player.add_child(cs)")
+          s = s.replace("cs.shape=cap; monster.add_child(cs)", "cs.shape=cap; cs.position=Vector3(0,1.05,0); monster.add_child(cs)")
+
+          old = "move_player(mv,delta); move_monster(delta); check_objectives()"
+          new = "move_player(mv,delta); move_monster(delta); check_objectives()\\n\\t\\tif player.global_position.y < -4.0:\\n\\t\\t\\tplayer.global_position=cell_to_world(Vector2i(1,1))+Vector3(0,.05,0); player.velocity=Vector3.ZERO; show(\\\"The carpet drops away. Level 0 puts you back.\\\")"
+          s = s.replace(old, new)
+
+          s = s.replace(
+              "stamina=max(0,stamina-delta*.24) if run else min(1,stamina+delta*.17)",
+              "if run:\\n\\t\\tstamina=max(0,stamina-delta*.16)\\n\\telif wish.length()<.05:\\n\\t\\tstamina=min(1,stamina+delta*.22)"
+          )
+          s = s.replace("var sp=5.25 if run else 3.35", "var sp=5.15 if run else 3.2")
+          s = s.replace("if state==State.TITLE: start_game(); return", "if state==State.TITLE: return")
+
+          s = s.replace(
+              "func _physics_process(delta):\\n\\tif state==State.PLAY:",
+              "func _physics_process(delta):\\n\\tif state==State.LOADING:\\n\\t\\tloading_t-=delta\\n\\t\\tif loading_t<=0:\\n\\t\\t\\tstate=State.TITLE; show(\\\"Use headphones if possible.\\\")\\n\\t\\tupdate_hud(); return\\n\\tif state==State.PLAY:"
+          )
+
+          ui_block = r'''func make_ui():
+	var layer=CanvasLayer.new(); add_child(layer)
+	fade_rect=ColorRect.new(); fade_rect.color=Color(.01,.009,.004,.55); fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(fade_rect)
+	loading_panel=panel(layer,Vector2(0,0),Vector2(1280,720),Color(.018,.016,.007,.97))
+	load_text=label(loading_panel,"BACKROOMS LEVEL ZERO\n\nloading fluorescent maze...",Vector2(330,282),34,Color(.96,.84,.42)); load_text.size=Vector2(620,120); load_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	menu_panel=panel(layer,Vector2(380,118),Vector2(520,440),Color(.055,.048,.024,.92))
+	title_text=label(menu_panel,"BACKROOMS\nLEVEL ZERO",Vector2(35,35),42,Color(.98,.86,.38)); title_text.size=Vector2(450,115); title_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var sub=label(menu_panel,"Find the breakers. Reach the exit.\nAvoid what listens in the yellow rooms.",Vector2(48,164),22,Color(.78,.72,.5)); sub.size=Vector2(430,82); sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	start_b=button(menu_panel,"ENTER LEVEL 0",Vector2(112,270),Vector2(296,64)); start_b.pressed.connect(start_game)
+	exit_b=button(menu_panel,"EXIT",Vector2(160,350),Vector2(200,54)); exit_b.pressed.connect(func(): get_tree().quit())
+	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",26); hud.add_theme_color_override("font_color",Color(.93,.84,.50)); layer.add_child(hud)
+	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",22); msg_label.add_theme_color_override("font_color",Color(.90,.82,.55)); layer.add_child(msg_label)
+	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=1; bar.show_percentage=false; layer.add_child(bar)
+	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(toggle_pause)
+	sprint_b=button(layer,"SPRINT",Vector2(1050,575),Vector2(170,78)); sprint_b.button_down.connect(func(): sprint=true); sprint_b.button_up.connect(func(): sprint=false)
+	pause_panel=panel(layer,Vector2(420,155),Vector2(440,385),Color(.045,.039,.021,.94))
+	label(pause_panel,"PAUSED",Vector2(140,42),42,Color(.95,.84,.45))
+	resume_b=button(pause_panel,"RESUME",Vector2(90,145),Vector2(260,62)); resume_b.pressed.connect(toggle_pause)
+	restart_b=button(pause_panel,"RESTART",Vector2(90,225),Vector2(260,62)); restart_b.pressed.connect(func(): get_tree().reload_current_scene())
+	var quit_b=button(pause_panel,"QUIT",Vector2(90,305),Vector2(260,54)); quit_b.pressed.connect(func(): get_tree().quit())
+
+func panel(parent,p,s,c):
+	var n=Panel.new(); n.position=p; n.size=s
+	var st=StyleBoxFlat.new(); st.bg_color=c; st.border_color=Color(.68,.57,.23,.9); st.set_border_width_all(2)
+	st.corner_radius_top_left=10; st.corner_radius_top_right=10; st.corner_radius_bottom_left=10; st.corner_radius_bottom_right=10
+	n.add_theme_stylebox_override("panel",st); parent.add_child(n); return n
+
+func label(parent,t,p,fs,col):
+	var l=Label.new(); l.text=t; l.position=p; l.add_theme_font_size_override("font_size",fs); l.add_theme_color_override("font_color",col); parent.add_child(l); return l
+
+func button(parent,t,p,s):
+	var b:=Button.new(); b.text=t; b.position=p; b.size=s; b.focus_mode=Control.FOCUS_NONE; b.add_theme_font_size_override("font_size",22)
+	var st=StyleBoxFlat.new(); st.bg_color=Color(.18,.15,.055,.88); st.border_color=Color(.78,.65,.25,.9); st.set_border_width_all(2)
+	st.corner_radius_top_left=8; st.corner_radius_top_right=8; st.corner_radius_bottom_left=8; st.corner_radius_bottom_right=8
+	var pr=st.duplicate(); pr.bg_color=Color(.36,.29,.09,.95)
+	b.add_theme_stylebox_override("normal",st); b.add_theme_stylebox_override("hover",st); b.add_theme_stylebox_override("pressed",pr); b.add_theme_color_override("font_color",Color(.96,.86,.48))
+	parent.add_child(b); return b
+'''
+          s = re.sub(r"func make_ui\(\):.*?func button\(parent,t,p,s\):.*?\n\treturn b\n", ui_block, s, flags=re.S)
+
+          update_block = r'''func update_hud():
+	if loading_panel: loading_panel.visible=state==State.LOADING
+	if menu_panel: menu_panel.visible=state==State.TITLE
+	if pause_panel: pause_panel.visible=state==State.PAUSE
+	if fade_rect: fade_rect.visible=state in [State.LOADING,State.TITLE,State.PAUSE,State.WIN,State.CAUGHT]
+	hud.text=objective(); msg_label.text=msg if msg_t>0 else ""; bar.value=stamina
+	var play=state==State.PLAY; var pause=state==State.PAUSE
+	pause_b.visible=play or pause; sprint_b.visible=play; bar.visible=play
+	hud.visible=state!=State.LOADING; msg_label.visible=state!=State.LOADING
+	pause_rect=Rect2(pause_b.position,pause_b.size); sprint_rect=Rect2(sprint_b.position,sprint_b.size)
+
+func objective():'''
+          s = re.sub(r"func update_hud\(\):.*?func objective\(\):", update_block, s, flags=re.S)
+          s = s.replace('if state==State.TITLE: return "Backrooms Level Zero 3D"', 'if state==State.TITLE: return "Backrooms Level Zero"')
+
+          box_block = r'''func box(parent,pos,size,material,collidable:=true):
+	var m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos
+	if collidable and not (parent is CharacterBody3D) and not (parent is Camera3D):
+		var body:=StaticBody3D.new(); var shape:=CollisionShape3D.new(); var bs:=BoxShape3D.new()
+		bs.size=size; shape.shape=bs; body.add_child(shape); parent.add_child(body); body.position=pos
+	return m
+'''
+          s = re.sub(r"func box\(parent,pos,size,material\):.*?return m\n", box_block, s, flags=re.S)
+
+          p.write_text(s)
+
+          pg = Path("godot/project.godot")
+          t = pg.read_text()
+          if "boot_splash/show_image" not in t:
+              t = t.replace("[application]\n", "[application]\nboot_splash/show_image=false\nboot_splash/bg_color=Color(0.018, 0.016, 0.007, 1)\n")
+          pg.write_text(t)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add godot/Main.gd godot/project.godot
+          git diff --cached --quiet || (git commit -m "Fix gameplay bugs and add Backrooms UI" && git push)
