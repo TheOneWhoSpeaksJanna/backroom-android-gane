@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.backrooms.levelzero:'
+    namespace 'com.backrooms.levelzero'
     compileSdk 35
 
     defaultConfig {
