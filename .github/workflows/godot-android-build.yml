@@ -58,7 +58,9 @@ jobs:
           set -eux
           sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
           mkdir -p Builds Source
-          ./"${GODOT_BIN}" --headless --path godot --install-android-build-template --quit
+          rm -rf godot/android
+          unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d godot
+          test -d godot/android
           ./"${GODOT_BIN}" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero3D.apk"
           test -s Builds/BackroomsLevelZero3D.apk
           zip -r Source/BackroomsLevelZeroGodotProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
