@@ -255,5 +255,9 @@ func next_path(a,b):
 	while came[step]!=s and came[step]!=step: step=came[step]
 	return cell_to_world(step)
 
-func box(parent,pos,size,material):
-	var m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos; return m
+func box(parent,pos,size,material,collidable:=true):
+	var m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos
+	if collidable and not (parent is CharacterBody3D) and not (parent is Camera3D):
+		var body:=StaticBody3D.new(); var shape:=CollisionShape3D.new(); var bs:=BoxShape3D.new()
+		bs.size=size; shape.shape=bs; body.add_child(shape); parent.add_child(body); body.position=pos
+	return m
