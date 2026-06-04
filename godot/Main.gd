@@ -26,6 +26,8 @@ var joy_base:=Vector2.ZERO
 var msg:="Tap START to enter Level 0"
 var msg_t:=4.0
 var loading_t:=1.25
+var debug_log_path:="user://BackroomsLevelZeroLogs/latest.log"
+var debug_tick:=0.0
 var monster_target:=Vector3.ZERO
 var alert:=0.0
 var hud:Label
@@ -47,6 +49,8 @@ var red:StandardMaterial3D
 var brown:StandardMaterial3D
 
 func _ready():
+	DirAccess.open("user://").make_dir_recursive("BackroomsLevelZeroLogs")
+	FileAccess.open(debug_log_path, FileAccess.WRITE).store_line("Backrooms Level Zero debug log started")
 	rng.seed=19740416
 	make_materials()
 	make_world_env()
@@ -133,10 +137,11 @@ func make_monster():
 
 func make_ui():
 	var layer=CanvasLayer.new(); add_child(layer)
+	var bg=ColorRect.new(); bg.color=Color(.05,.045,.02,.72); bg.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(bg)
 	hud=Label.new(); hud.position=Vector2(28,22); hud.add_theme_font_size_override("font_size",28); hud.add_theme_color_override("font_color",Color(.95,.86,.45)); layer.add_child(hud)
 	msg_label=Label.new(); msg_label.position=Vector2(28,62); msg_label.add_theme_font_size_override("font_size",22); msg_label.add_theme_color_override("font_color",Color(.9,.82,.55)); layer.add_child(msg_label)
-	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=1; layer.add_child(bar)
-	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(toggle_pause)
+	bar=ProgressBar.new(); bar.position=Vector2(28,670); bar.size=Vector2(280,18); bar.max_value=100; layer.add_child(bar)
+	pause_b=button(layer,"II",Vector2(1180,24),Vector2(70,62)); pause_b.pressed.connect(open_pause)
 	sprint_b=button(layer,"SPRINT",Vector2(1050,575),Vector2(170,78)); sprint_b.button_down.connect(func(): sprint=true); sprint_b.button_up.connect(func(): sprint=false)
 	start_b=button(layer,"ENTER LEVEL 0",Vector2(490,420),Vector2(300,70)); start_b.pressed.connect(start_game)
 	exit_b=button(layer,"EXIT",Vector2(500,360),Vector2(280,58)); exit_b.pressed.connect(func(): get_tree().quit())
@@ -162,17 +167,24 @@ func _physics_process(delta):
 			player.global_position=cell_to_world(Vector2i(1,1))+Vector3(0,.05,0); player.velocity=Vector3.ZERO; show("The carpet drops away. Level 0 puts you back.")
 		if player.global_position.distance_to(monster.global_position)<1.1: state=State.CAUGHT; show("It found you.")
 	if msg_t>0: msg_t-=delta
+	debug_tick+=delta
+	if debug_tick>3 and state==State.PLAY:
+		debug_tick=0
+		var f=FileAccess.open(debug_log_path,FileAccess.READ_WRITE)
+		if f:
+			f.seek_end(); f.store_line("pos=%s stamina=%.2f objective=%d/3"%[str(player.global_position),stamina,count])
 	update_hud()
 
 func move_player(mv,delta):
 	player.rotate_y(-look.x*.0038); pitch=clamp(pitch+look.y*-.0033,deg_to_rad(-80),deg_to_rad(80)); cam.rotation.x=pitch; look=Vector2.ZERO
 	var wish=player.global_transform.basis*Vector3(mv.x,0,-mv.y); wish.y=0
 	if wish.length()>1: wish=wish.normalized()
-	var run=sprint and wish.length()>.05 and stamina>.05
+	var run=sprint and wish.length()>.05 and stamina>0.0
 	if run:
-		stamina=max(0,stamina-delta*.16)
-	elif wish.length()<.05:
-		stamina=min(1,stamina+delta*.22)
+		stamina=max(0.0,stamina-delta*.11)
+		if stamina<=0.0: sprint=false
+	elif wish.length()<.05 and not sprint:
+		stamina=min(1.0,stamina+delta*.20)
 	var sp=5.15 if run else 3.2
 	player.velocity.x=wish.x*sp; player.velocity.z=wish.z*sp; player.velocity.y=-.1 if player.is_on_floor() else player.velocity.y-18*delta
 	player.move_and_slide()
@@ -197,13 +209,13 @@ func check_objectives():
 	if count>=3 and player.global_position.distance_to(exit_door.global_position)<1.6: state=State.WIN; show("You found the strange exit door.")
 
 func _input(e):
-	if e is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY: look+=e.relative
+	if e is InputEventMouseMotion and not OS.has_feature("mobile") and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY: look+=e.relative
 	if e is InputEventScreenTouch:
 		if e.pressed:
 			if state==State.TITLE: return
 			if state==State.WIN or state==State.CAUGHT: get_tree().reload_current_scene(); return
 			var p=e.position
-			if pause_rect.has_point(p): toggle_pause(); return
+			if pause_rect.has_point(p): open_pause(); return
 			if sprint_rect.has_point(p): sprint_id=e.index; sprint=true; return
 			if p.x<get_viewport().get_visible_rect().size.x*.45 and joy_id==-1: joy_id=e.index; joy_base=p
 			elif look_id==-1: look_id=e.index
@@ -219,7 +231,7 @@ func _input(e):
 		elif e.index==look_id: look+=e.relative
 
 func update_hud():
-	hud.text=objective(); msg_label.text=msg if msg_t>0 else ""; bar.value=stamina
+	hud.text=objective(); msg_label.text=msg if msg_t>0 else ""; bar.value=int(round(stamina*100.0))
 	var play=state==State.PLAY; var pause=state==State.PAUSE
 	pause_b.visible=play or pause; sprint_b.visible=play; start_b.visible=state==State.TITLE; exit_b.visible=pause; bar.visible=play
 	pause_rect=Rect2(pause_b.position,pause_b.size); sprint_rect=Rect2(sprint_b.position,sprint_b.size)
@@ -231,8 +243,14 @@ func objective():
 	if count<3: return "Objective: activate breakers %d/3"%count
 	return "Objective: reach the strange exit door"
 
-func start_game(): state=State.PLAY; show("Objective: activate 3 red breaker boxes.")
-func toggle_pause(): state=State.PAUSE if state==State.PLAY else State.PLAY
+func start_game():
+	state=State.PLAY; msg_t=0; show("Objective: activate 3 red breaker boxes.")
+func open_pause():
+	if state!=State.PLAY: return
+	state=State.PAUSE; sprint=false; move=Vector2.ZERO; show("PAUSED")
+func resume_game():
+	if state==State.PAUSE: state=State.PLAY
+func toggle_pause(): open_pause()
 func show(t): msg=t; msg_t=4
 func is_open(c): return c.x>=0 and c.y>=0 and c.x<W and c.y<H and open.has(c)
 func cell_to_world(c): return Vector3((c.x-W/2.0)*CELL,0,(c.y-H/2.0)*CELL)
