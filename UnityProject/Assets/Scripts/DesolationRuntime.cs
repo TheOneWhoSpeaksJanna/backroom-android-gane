@@ -1,109 +1,34 @@
+using System.Collections.Generic;
 using UnityEngine;
-
-public sealed class DesolationRuntime : MonoBehaviour
-{
-    CharacterController controller;
-    Camera cam;
-    Vector3 velocity;
-    float yaw;
-    float pitch;
-    int fuses;
-    string message = "Find three blue fuses and reach the service exit.";
-
-    void Start()
-    {
-        Application.targetFrameRate = 60;
-        MakeBox("Carpet", new Vector3(0f, -0.05f, 0f), new Vector3(30f, 0.1f, 30f), new Color(0.28f, 0.22f, 0.12f));
-        MakeBox("Ceiling", new Vector3(0f, 2.6f, 0f), new Vector3(30f, 0.1f, 30f), new Color(0.55f, 0.52f, 0.36f));
-        MakeBox("NorthWall", new Vector3(0f, 1.25f, 15f), new Vector3(30f, 2.5f, 0.2f), new Color(0.7f, 0.62f, 0.26f));
-        MakeBox("SouthWall", new Vector3(0f, 1.25f, -15f), new Vector3(30f, 2.5f, 0.2f), new Color(0.7f, 0.62f, 0.26f));
-        MakeBox("EastWall", new Vector3(15f, 1.25f, 0f), new Vector3(0.2f, 2.5f, 30f), new Color(0.7f, 0.62f, 0.26f));
-        MakeBox("WestWall", new Vector3(-15f, 1.25f, 0f), new Vector3(0.2f, 2.5f, 30f), new Color(0.7f, 0.62f, 0.26f));
-        MakeBox("BlueFuse", new Vector3(-9f, 0.5f, -9f), Vector3.one * 0.45f, Color.cyan);
-        MakeBox("BlueFuse", new Vector3(9f, 0.5f, -4f), Vector3.one * 0.45f, Color.cyan);
-        MakeBox("BlueFuse", new Vector3(-4f, 0.5f, 10f), Vector3.one * 0.45f, Color.cyan);
-        MakeBox("ServiceExit", new Vector3(14f, 1f, 12f), new Vector3(0.25f, 2f, 2.1f), new Color(0.22f, 0.21f, 0.19f));
-        Light light = new GameObject("Light").AddComponent<Light>();
-        light.type = LightType.Point;
-        light.range = 25f;
-        light.intensity = 1.2f;
-        light.transform.position = new Vector3(0f, 2.4f, 0f);
-        GameObject player = new GameObject("Player");
-        controller = player.AddComponent<CharacterController>();
-        controller.height = 1.75f;
-        controller.radius = 0.32f;
-        player.transform.position = new Vector3(0f, 0.9f, 0f);
-        cam = new GameObject("PlayerCamera").AddComponent<Camera>();
-        cam.transform.SetParent(player.transform);
-        cam.transform.localPosition = new Vector3(0f, 0.65f, 0f);
-        cam.fieldOfView = 72f;
-        cam.gameObject.AddComponent<AudioListener>();
-    }
-
-    void Update()
-    {
-        if (controller == null) return;
-        Vector2 move = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        if (Input.touchCount > 0 && Input.GetTouch(0).position.x < Screen.width * 0.45f)
-        {
-            Vector2 d = (Input.GetTouch(0).position - new Vector2(140f, 540f)) / 100f;
-            move += Vector2.ClampMagnitude(d, 1f);
-        }
-        yaw += Input.GetAxis("Mouse X") * 4f;
-        pitch = Mathf.Clamp(pitch - Input.GetAxis("Mouse Y") * 3f, -80f, 80f);
-        for (int i = 0; i < Input.touchCount; i++)
-        {
-            Touch t = Input.GetTouch(i);
-            if (t.position.x > Screen.width * 0.45f && t.phase == TouchPhase.Moved)
-            {
-                yaw += t.deltaPosition.x * 0.18f;
-                pitch = Mathf.Clamp(pitch - t.deltaPosition.y * 0.16f, -80f, 80f);
-            }
-        }
-        controller.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-        cam.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
-        Vector3 motion = controller.transform.right * move.x + controller.transform.forward * move.y;
-        if (motion.magnitude > 1f) motion.Normalize();
-        velocity = new Vector3(motion.x * 3.6f, controller.isGrounded ? -0.1f : velocity.y - 18f * Time.deltaTime, motion.z * 3.6f);
-        controller.Move(velocity * Time.deltaTime);
-        CheckObjects();
-    }
-
-    void CheckObjects()
-    {
-        foreach (GameObject obj in FindObjectsByType<GameObject>(FindObjectsSortMode.None))
-        {
-            float d = Vector3.Distance(controller.transform.position, obj.transform.position);
-            if (obj.name == "BlueFuse" && d < 1.4f)
-            {
-                fuses++;
-                Destroy(obj);
-                message = "Fuse collected: " + fuses + "/3";
-            }
-            if (obj.name == "ServiceExit" && d < 2f)
-            {
-                message = fuses >= 3 ? "Escape ending. Unity cloud build works." : "The exit needs three fuses.";
-            }
-        }
-    }
-
-    void MakeBox(string n, Vector3 p, Vector3 s, Color c)
-    {
-        GameObject g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        g.name = n;
-        g.transform.position = p;
-        g.transform.localScale = s;
-        Material m = new Material(Shader.Find("Standard"));
-        m.color = c;
-        g.GetComponent<Renderer>().material = m;
-    }
-
-    void OnGUI()
-    {
-        GUI.Label(new Rect(20, 20, 1000, 40), "Desolation: The Backrooms - Unity Migration Scaffold");
-        GUI.Label(new Rect(20, 55, 1000, 40), "Fuses " + fuses + "/3");
-        GUI.Label(new Rect(20, 90, 1100, 60), message);
-        GUI.Box(new Rect(35, 430, 230, 230), "MOVE");
-        GUI.Box(new Rect(930, 575, 190, 70), "SPRINT");
-    }
+public sealed class DesolationRuntime:MonoBehaviour{
+enum S{Title,Play,Pause,Set,Help,End}class I{public string id,k,t;public GameObject g;}S s;List<I> it=new List<I>();HashSet<string> used=new HashSet<string>(),notes=new HashSet<string>();Dictionary<string,Material> m=new Dictionary<string,Material>();GameObject w,p,e,camObj,door;CharacterController cc;Camera cam;AudioSource a;Vector3 v,last,lure;Vector2 move;float yaw,pitch,stam=1,san=1,msgT,hideT,eventT,sens=1,vol=.8f,btn=1,look=.48f;int slot,fuses,scraps=2;bool breaker,lureOn;string msg="",end="";GUIStyle big,txt,but;
+void Start(){Application.targetFrameRate=60;Screen.sleepTimeout=SleepTimeout.NeverSleep;sens=PlayerPrefs.GetFloat("sens",1);vol=PlayerPrefs.GetFloat("vol",.8f);btn=PlayerPrefs.GetFloat("btn",1);look=PlayerPrefs.GetFloat("look",.48f);a=gameObject.AddComponent<AudioSource>();var mc=new GameObject("MenuCamera").AddComponent<Camera>();mc.clearFlags=CameraClearFlags.SolidColor;mc.backgroundColor=new Color(.015f,.012f,.004f);}
+string K(string x){return"u"+slot+x;}bool Has(int i){return PlayerPrefs.GetInt("u"+i+"save",0)==1;}
+void New(int sl,bool load){slot=sl;if(w)Destroy(w);used.Clear();notes.Clear();fuses=0;scraps=2;san=1;breaker=false;if(load){fuses=PlayerPrefs.GetInt(K("f"),0);scraps=PlayerPrefs.GetInt(K("sc"),2);san=PlayerPrefs.GetFloat(K("sa"),1);breaker=PlayerPrefs.GetInt(K("br"),0)==1;foreach(var x in PlayerPrefs.GetString(K("u"),"").Split('|'))if(x.Length>0)used.Add(x);foreach(var x in PlayerPrefs.GetString(K("n"),"").Split('|'))if(x.Length>0)notes.Add(x);}Build();if(load){p.transform.position=new Vector3(PlayerPrefs.GetFloat(K("x"),0),.9f,PlayerPrefs.GetFloat(K("z"),0));yaw=PlayerPrefs.GetFloat(K("y"),0);}s=S.Play;Save();Say("Find three fuses, read clues, hide, distract it, escape.",4);}
+void Save(){if(!p)return;PlayerPrefs.SetInt(K("save"),1);PlayerPrefs.SetFloat(K("x"),p.transform.position.x);PlayerPrefs.SetFloat(K("z"),p.transform.position.z);PlayerPrefs.SetFloat(K("y"),yaw);PlayerPrefs.SetFloat(K("sa"),san);PlayerPrefs.SetInt(K("f"),fuses);PlayerPrefs.SetInt(K("sc"),scraps);PlayerPrefs.SetInt(K("br"),breaker?1:0);PlayerPrefs.SetString(K("u"),string.Join("|",new List<string>(used).ToArray()));PlayerPrefs.SetString(K("n"),string.Join("|",new List<string>(notes).ToArray()));PlayerPrefs.Save();}
+void Build(){w=new GameObject("LevelZero");it.Clear();Mat();Room(Vector3.zero,16,16,"wall");Room(new Vector3(16,0,-4),18,12,"bad");Room(new Vector3(-14,0,8),14,12,"wall");Room(new Vector3(4,0,20),14,12,"bad");Room(new Vector3(22,0,18),12,16,"wall");for(int i=0;i<18;i++)Box(new Vector3(-16+i%6*7,1.2f,-14+i/6*11),new Vector3(.7f,2.4f,.7f),"bad",1);for(int i=0;i<6;i++)Light(new Vector3(-10+i*7,2.6f,-9+(i%2)*13));Fuse("f1",-5,-5);Fuse("f2",19,-8);Fuse("f3",-18,11);Note("n1",0,-7,"BLUE power opens the exit.");Note("n2",-19,6,"Stained wall pockets hide breathing.");Note("n3",18,-9,"Throw scraps to distract it.");Note("n4",5,22,"Breaker unlocks maintenance.");Note("n5",25,16,"Truth needs every note and sanity.");Hide("h1",-9,-7);Hide("h2",-19,9);Hide("h3",7,23);Add("radio","radio","Take metal scraps",Box(new Vector3(2,.5f,18),Vector3.one*.6f,"raw",0));Add("breaker","breaker","Switch breaker",Box(new Vector3(-20,1,11),new Vector3(.7f,.8f,.3f),"metal",0));door=Box(new Vector3(-8,1.2f,8),new Vector3(.3f,2.2f,3.2f),"metal",1);Add("door","door","Locked service door",door);Add("exit","exit","Service exit",Box(new Vector3(26,1.1f,21),new Vector3(.3f,2.2f,2.4f),"metal",1));Player();Enemy();Open();}
+void Mat(){m.Clear();m["wall"]=Ma(.72f,.63f,.25f);m["bad"]=Ma(.48f,.42f,.17f);m["floor"]=Ma(.32f,.24f,.12f);m["ceil"]=Ma(.58f,.56f,.42f);m["metal"]=Ma(.2f,.2f,.18f);m["raw"]=Ma(.12f,.12f,.12f);m["wood"]=Ma(.32f,.2f,.1f);m["blue"]=Ma(0,.8f,1);m["dark"]=Ma(.01f,.01f,.01f);m["red"]=Ma(.4f,.03f,.02f);m["blue"].EnableKeyword("_EMISSION");m["blue"].SetColor("_EmissionColor",Color.cyan*1.3f);}
+Material Ma(float r,float g,float b){var x=new Material(Shader.Find("Standard"));x.color=new Color(r,g,b);return x;}
+void Room(Vector3 c,float x,float z,string wm){Box(c+new Vector3(0,-.05f,0),new Vector3(x,.1f,z),"floor",1);Box(c+new Vector3(0,2.6f,0),new Vector3(x,.1f,z),"ceil",0);Box(c+new Vector3(0,1.2f,z/2),new Vector3(x,2.5f,.2f),wm,1);Box(c+new Vector3(0,1.2f,-z/2),new Vector3(x,2.5f,.2f),wm,1);Box(c+new Vector3(x/2,1.2f,0),new Vector3(.2f,2.5f,z),wm,1);Box(c+new Vector3(-x/2,1.2f,0),new Vector3(.2f,2.5f,z),wm,1);}
+GameObject Box(Vector3 p,Vector3 s,string mt,int col){var g=GameObject.CreatePrimitive(PrimitiveType.Cube);g.transform.SetParent(w.transform);g.transform.position=p;g.transform.localScale=s;g.GetComponent<Renderer>().material=m[mt];if(col==0)Destroy(g.GetComponent<Collider>());return g;}
+void Light(Vector3 p){var l=new GameObject("Light").AddComponent<Light>();l.transform.SetParent(w.transform);l.transform.position=p;l.type=LightType.Point;l.range=8;l.intensity=.65f;}
+void Fuse(string id,float x,float z){if(!used.Contains(id))Add(id,"fuse","Collect blue fuse",Box(new Vector3(x,.5f,z),Vector3.one*.45f,"blue",0));}
+void Note(string id,float x,float z,string t){if(!used.Contains(id))Add(id,"note",t,Box(new Vector3(x,.7f,z),new Vector3(.8f,.08f,.5f),"wood",0));}
+void Hide(string id,float x,float z){Add(id,"hide","Hide in stained wallpaper",Box(new Vector3(x,.9f,z),new Vector3(1.2f,1.3f,.7f),"bad",1));}
+void Add(string id,string k,string t,GameObject g){g.name=id;it.Add(new I{id=id,k=k,t=t,g=g});}
+void Player(){p=new GameObject("Player");p.transform.SetParent(w.transform);p.transform.position=new Vector3(0,.9f,0);cc=p.AddComponent<CharacterController>();cc.height=1.75f;cc.radius=.32f;camObj=new GameObject("Camera");cam=camObj.AddComponent<Camera>();camObj.transform.SetParent(p.transform);camObj.transform.localPosition=new Vector3(0,.65f,0);camObj.AddComponent<AudioListener>();}
+void Enemy(){e=GameObject.CreatePrimitive(PrimitiveType.Capsule);e.transform.SetParent(w.transform);e.transform.position=new Vector3(13,.9f,12);e.GetComponent<Renderer>().material=m["dark"];Destroy(e.GetComponent<Collider>());last=p.transform.position;}
+void Update(){if(s!=S.Play)return;Inp();Move();AI();if(msgT>0)msgT-=Time.deltaTime;}
+void Inp(){move=Vector2.zero;sprint=Input.GetKey(KeyCode.LeftShift);if(Input.GetKey(KeyCode.W))move.y++;if(Input.GetKey(KeyCode.S))move.y--;if(Input.GetKey(KeyCode.A))move.x--;if(Input.GetKey(KeyCode.D))move.x++;yaw+=Input.GetAxis("Mouse X")*4*sens;pitch=Mathf.Clamp(pitch-Input.GetAxis("Mouse Y")*3*sens,-80,80);if(Input.GetKeyDown(KeyCode.E))Use();if(Input.GetKeyDown(KeyCode.F))Throw();if(Input.GetKeyDown(KeyCode.Escape)||Input.GetKeyDown(KeyCode.Backspace))s=S.Pause;}
+void Move(){p.transform.rotation=Quaternion.Euler(0,yaw,0);cam.transform.localRotation=Quaternion.Euler(pitch,0,0);Vector3 d=p.transform.right*move.x+p.transform.forward*move.y;float sp=sprint&&stam>.05f?5.2f:3.4f;stam=Mathf.Clamp01(stam+(sprint&&d.sqrMagnitude>.01f?-.16f:.18f)*Time.deltaTime);v.x=d.x*sp;v.z=d.z*sp;v.y=cc.isGrounded?-.1f:v.y-18*Time.deltaTime;cc.Move(v*Time.deltaTime);}
+void AI(){bool hid=Time.time<hideT,sees=See()&&!hid;if(sees)last=p.transform.position;Vector3 target=lureOn&&Time.time<lureT?lure:last;if(lureOn&&Time.time>=lureT)lureOn=false;Vector3 d=target-e.transform.position;d.y=0;if(d.magnitude>.2f)e.transform.position+=d.normalized*(sees?2.1f:1.2f)*Time.deltaTime;float dist=Vector3.Distance(e.transform.position,p.transform.position);if(dist<5&&!hid)san-=Time.deltaTime*(sees?.09f:.03f);else san=Mathf.Min(1,san+Time.deltaTime*.015f);if(dist<1.2f&&!hid)End("lost");if(san<=0)End("desolation");}
+bool See(){Vector3 a=e.transform.position+Vector3.up,b=p.transform.position+Vector3.up;if(Vector3.Distance(a,b)>18)return false;RaycastHit h;if(!Physics.Raycast(a,(b-a).normalized,out h,Vector3.Distance(a,b)))return true;return h.collider&&h.collider.GetComponentInParent<CharacterController>()==cc;}
+I Near(){I best=null;float bd=2.3f;foreach(var t in it){if(!t.g)continue;float d=Vector3.Distance(p.transform.position,t.g.transform.position);if(d<bd){bd=d;best=t;}}return best;}
+void Use(){var t=Near();if(t==null){Say("Nothing close.",1);return;}if(t.k=="fuse"){fuses++;used.Add(t.id);it.Remove(t);Destroy(t.g);Say("Fuse "+fuses+"/3",2);}else if(t.k=="note"){notes.Add(t.id);used.Add(t.id);it.Remove(t);Destroy(t.g);Say(t.t,4);}else if(t.k=="hide"){hideT=Time.time+3.5f;san=Mathf.Min(1,san+.12f);Say("You hide and breathe slowly.",2);}else if(t.k=="breaker"){breaker=true;Open();Say("Breaker online.",2);}else if(t.k=="radio"){scraps+=2;it.Remove(t);Destroy(t.g);Say("Scraps collected.",2);}else if(t.k=="door")Say(breaker?"Door open.":"Locked. Find breaker.",2);else if(t.k=="exit"){if(fuses<3)Say("Exit needs three fuses.",2);else if(notes.Count>=5&&san>.4f)End("truth");else if(san<.28f)End("desolation");else End("escape");}Save();}
+void Throw(){if(scraps<=0){Say("No scraps.",1);return;}scraps--;lure=p.transform.position+p.transform.forward*7;lureOn=true;lureT=Time.time+5;Say("Metal clatters away.",2);}
+void Open(){if(breaker&&door){var c=door.GetComponent<Collider>();if(c)c.enabled=false;door.GetComponent<Renderer>().material=m["raw"];}}
+void End(string k){s=S.End;if(k=="truth")end="TRUTH ENDING\nYou read every clue and escaped with proof.";else if(k=="lost")end="LOST ENDING\nIt found your steps.";else if(k=="desolation")end="DESOLATION ENDING\nThe rooms learned your shape.";else end="ESCAPE ENDING\nYou powered the exit and escaped.";Save();}
+void Say(string x,float t){msg=x;msgT=t;}
+void OnGUI(){if(big==null){big=new GUIStyle(GUI.skin.label){fontSize=48,alignment=TextAnchor.MiddleCenter};txt=new GUIStyle(GUI.skin.label){fontSize=22,wordWrap=true};but=new GUIStyle(GUI.skin.button){fontSize=22};}GUI.color=Color.white;if(s==S.Title){GUI.Label(new Rect(0,50,Screen.width,80),"DESOLATION: THE BACKROOMS",big);for(int i=0;i<3;i++)if(GUI.Button(new Rect(Screen.width/2-220,180+i*65,440,56),Has(i)?"CONTINUE SLOT "+(i+1):"NEW GAME SLOT "+(i+1),but))New(i,Has(i));if(GUI.Button(new Rect(Screen.width/2-220,390,440,56),"SETTINGS",but))s=S.Set;if(GUI.Button(new Rect(Screen.width/2-220,455,440,56),"APK HELP",but))s=S.Help;}else if(s==S.Play){GUI.Label(new Rect(20,20,900,40),"Fuses "+fuses+"/3  Notes "+notes.Count+"/5  Scraps "+scraps+"  Sanity "+Mathf.RoundToInt(san*100)+"%",txt);var n=Near();GUI.Label(new Rect(20,60,900,70),msgT>0?msg:n!=null?"USE: "+n.t:"",txt);if(GUI.Button(new Rect(40,Screen.height-90,170*btn,60*btn),"USE",but))Use();if(GUI.Button(new Rect(Screen.width-210,Screen.height-90,170*btn,60*btn),"THROW",but))Throw();if(GUI.Button(new Rect(Screen.width-130,20,110,55),"MENU",but))s=S.Pause;}else if(s==S.Pause){if(GUI.Button(new Rect(Screen.width/2-200,220,400,60),"RESUME",but))s=S.Play;if(GUI.Button(new Rect(Screen.width/2-200,290,400,60),"SAVE",but))Save();if(GUI.Button(new Rect(Screen.width/2-200,360,400,60),"MAIN MENU",but)){s=S.Title;if(w)w.SetActive(false);}}else if(s==S.Set){sens=GUI.HorizontalSlider(new Rect(120,140,600,40),sens,.4f,2);vol=GUI.HorizontalSlider(new Rect(120,200,600,40),vol,0,1);btn=GUI.HorizontalSlider(new Rect(120,260,600,40),btn,.75f,1.35f);GUI.Label(new Rect(120,80,700,50),"Sensitivity / Volume / Button Size",txt);if(GUI.Button(new Rect(120,330,300,60),"SAVE",but)){PlayerPrefs.SetFloat("sens",sens);PlayerPrefs.SetFloat("vol",vol);PlayerPrefs.SetFloat("btn",btn);PlayerPrefs.Save();s=S.Title;}}else if(s==S.Help){GUI.Label(new Rect(80,100,Screen.width-160,250),"Android installs .apk directly. If you download .apk.7z, extract it first, then install the extracted APK.",txt);if(GUI.Button(new Rect(Screen.width/2-160,400,320,60),"BACK",but))s=S.Title;}else if(s==S.End){GUI.Label(new Rect(80,120,Screen.width-160,240),end,txt);if(GUI.Button(new Rect(Screen.width/2-200,390,400,60),"MAIN MENU",but))s=S.Title;}}
+void OnApplicationPause(bool x){if(x)Save();}void OnApplicationQuit(){Save();}
 }
