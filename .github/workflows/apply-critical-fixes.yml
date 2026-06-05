@@ -1,49 +1,10 @@
-name: Apply Critical Gameplay UI Fixes
+name: Disabled - Old critical fixes patch
+
 on:
   workflow_dispatch:
-permissions:
-  contents: write
+
 jobs:
-  patch:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Patch files
-        shell: bash
-        run: |
-          set -eu
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('godot/Main.gd')
-          s=p.read_text()
-          s=s.replace('if e is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY:', 'if e is InputEventMouseMotion and not OS.has_feature("mobile") and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and state==State.PLAY:')
-          s=s.replace('var run=sprint and wish.length()>.05 and stamina>.05', 'var run=sprint and wish.length()>.05 and stamina>0.0')
-          s=s.replace('stamina=max(0,stamina-delta*.16)', 'stamina=max(0.0,stamina-delta*.11)\n\t\tif stamina<=0.0: sprint=false')
-          s=s.replace('elif wish.length()<.05:\n\t\tstamina=min(1,stamina+delta*.22)', 'elif wish.length()<.05 and not sprint:\n\t\tstamina=min(1.0,stamina+delta*.20)')
-          s=s.replace('bar.max_value=1', 'bar.max_value=100')
-          s=s.replace('bar.value=stamina', 'bar.value=int(round(stamina*100.0))')
-          s=s.replace('pause_b.pressed.connect(toggle_pause)', 'pause_b.pressed.connect(open_pause)')
-          s=s.replace('if pause_rect.has_point(p): toggle_pause(); return', 'if pause_rect.has_point(p): open_pause(); return')
-          if 'func open_pause():' not in s:
-              s=s.replace('func start_game(): state=State.PLAY; show("Objective: activate 3 red breaker boxes.")\nfunc toggle_pause(): state=State.PAUSE if state==State.PLAY else State.PLAY', 'func start_game():\n\tstate=State.PLAY; msg_t=0; show("Objective: activate 3 red breaker boxes.")\nfunc open_pause():\n\tif state!=State.PLAY: return\n\tstate=State.PAUSE; sprint=false; move=Vector2.ZERO; show("PAUSED")\nfunc resume_game():\n\tif state==State.PAUSE: state=State.PLAY\nfunc toggle_pause(): open_pause()')
-          if 'var debug_log_path' not in s:
-              s=s.replace('var loading_t:=1.25', 'var loading_t:=1.25\nvar debug_log_path:="user://BackroomsLevelZeroLogs/latest.log"\nvar debug_tick:=0.0')
-              s=s.replace('func _ready():\n\trng.seed=19740416', 'func _ready():\n\tDirAccess.open("user://").make_dir_recursive("BackroomsLevelZeroLogs")\n\tFileAccess.open(debug_log_path, FileAccess.WRITE).store_line("Backrooms Level Zero debug log started")\n\trng.seed=19740416')
-              s=s.replace('if msg_t>0: msg_t-=delta\n\tupdate_hud()', 'if msg_t>0: msg_t-=delta\n\tdebug_tick+=delta\n\tif debug_tick>3 and state==State.PLAY:\n\t\tdebug_tick=0\n\t\tvar f=FileAccess.open(debug_log_path,FileAccess.READ_WRITE)\n\t\tif f:\n\t\t\tf.seek_end(); f.store_line("pos=%s stamina=%.2f objective=%d/3"%[str(player.global_position),stamina,count])\n\tupdate_hud()')
-          if 'var bg=ColorRect.new()' not in s:
-              s=s.replace('hud=Label.new(); hud.position=Vector2(28,22);', 'var bg=ColorRect.new(); bg.color=Color(.05,.045,.02,.72); bg.set_anchors_preset(Control.PRESET_FULL_RECT); layer.add_child(bg)\n\thud=Label.new(); hud.position=Vector2(28,22);')
-          p.write_text(s)
-          pg=Path('godot/project.godot')
-          t=pg.read_text()
-          if 'boot_splash/show_image=false' not in t:
-              t=t.replace('[application]\n','[application]\nboot_splash/show_image=false\nboot_splash/bg_color=Color(0.018, 0.016, 0.007, 1)\n')
-          if 'input_devices/pointing/emulate_mouse_from_touch=false' not in t:
-              t += '\n[input_devices]\npointing/emulate_mouse_from_touch=false\npointing/emulate_touch_from_mouse=false\n'
-          pg.write_text(t)
-          PY
-      - name: Commit patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add godot/Main.gd godot/project.godot
-          git diff --cached --quiet || (git commit -m "Fix stamina touch look splash and add debug log" && git push)
+      - run: echo "Disabled. Use Build and Release Godot Android APK instead."
