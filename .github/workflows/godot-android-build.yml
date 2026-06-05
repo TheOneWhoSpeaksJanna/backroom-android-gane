@@ -28,7 +28,7 @@ env:
 
 jobs:
   build-and-release:
-    name: Build full Godot APK and release files
+    name: Build full Godot release APK and release files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -66,7 +66,7 @@ jobs:
         run: |
           set -eux
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
-      - name: Import, export, compress
+      - name: Import, export release, compress
         shell: bash
         run: |
           set -eux
@@ -82,7 +82,7 @@ jobs:
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
           rm -rf Builds Source
           mkdir -p Builds Source
-          ./"$GODOT_BIN" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/${APK_NAME}"
+          ./"$GODOT_BIN" --headless --path godot --export-release "Android Release" "$GITHUB_WORKSPACE/Builds/${APK_NAME}"
           test -s "Builds/${APK_NAME}"
           APK_SIZE=$(wc -c < "Builds/${APK_NAME}")
           echo "APK size: ${APK_SIZE} bytes"
@@ -112,4 +112,4 @@ jobs:
         run: |
           set -eux
           TAG="desolation-apk-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Desolation: The Backrooms Android Build ${GITHUB_RUN_NUMBER}" --notes "Full Godot Android APK, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}." --latest
+          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Desolation: The Backrooms Android Build ${GITHUB_RUN_NUMBER}" --notes "Release APK export, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}. Android cannot install .7z directly; extract it first, then install the .apk." --latest
