@@ -7,12 +7,16 @@ The current version is a native Android build that can be compiled entirely thro
 ## Current gameplay
 
 - First-person movement.
+- Main menu with `ENTER LEVEL 0`, `SETTINGS`, and `EXIT`.
+- Loading screen with flickering fluorescent progress bar.
 - Left virtual joystick.
 - Right-side swipe look.
+- `USE` button for nearby red wall buttons.
 - Sprint with stamina.
-- Pause menu.
-- Sensitivity setting.
-- Graphics quality setting.
+- Improved HUD with objective text, stamina, sanity, pause, use, and sprint controls.
+- Pause menu that stays open until the player taps resume or another menu action.
+- Settings screen for sensitivity, brightness, volume, frame cap, graphics scale, and control layout.
+- Control layout screen for opacity and button size.
 - Procedural Level 0 maze.
 - Yellow first-person sleeves/hands based on the player reference.
 - Black shadow monster based on the monster reference.
@@ -22,7 +26,7 @@ The current version is a native Android build that can be compiled entirely thro
 
 ## Art direction
 
-The game follows the uploaded references in `References/images/`:
+The game follows the uploaded references in `References/images/` and the uploaded prompt pack recorded in `Documentation/UI_Prompt_Pack.md`:
 
 - endless yellow corridors
 - plain pillars
@@ -32,11 +36,14 @@ The game follows the uploaded references in `References/images/`:
 - yellow player/hazmat figures
 - black shadow entity
 - strange empty rooms, pits, and lone chairs
+- dark translucent horror UI panels
+- dirty yellow Android-friendly large touch targets
 
-The longer direction document is at:
+The longer direction documents are at:
 
 ```text
 Documentation/Level0_Game_Design.md
+Documentation/UI_Prompt_Pack.md
 ```
 
 ## Engine / renderer used
