@@ -1,113 +1,115 @@
-name: Build Godot 3D Android APK
+name: Build and Release Godot Android APK
 
 on:
   push:
     branches: [main]
-    paths: ["godot/**", ".github/workflows/godot-android-build.yml", "README_GODOT_3D.md", "Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md", "MISSING_FEATURES.md"]
+    paths:
+      - "godot/**"
+      - "Documentation/**"
+      - "MISSING_FEATURES.md"
+      - "README_GODOT_3D.md"
+      - ".github/workflows/godot-android-build.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: godot-android-${{ github.ref }}
+  group: godot-android-release-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   GODOT_RELEASE: 4.4.1-stable
   GODOT_BIN: Godot_v4.4.1-stable_linux.x86_64
   ANDROID_HOME: /usr/local/lib/android/sdk
+  APK_NAME: BackroomsLevelZero.apk
+  APK_7Z_NAME: BackroomsLevelZero.apk.7z
+  SOURCE_ZIP_NAME: BackroomsLevelZeroProject.zip
 
 jobs:
-  build:
+  build-and-release:
+    name: Build full Godot APK and release files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Tooling
+      - name: Install tools and Android SDK packages
+        shell: bash
         run: |
           set -eux
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip zip curl
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
           mkdir -p "$HOME/.android" "$HOME/.config/godot"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+      - name: Install Godot and export templates
+        shell: bash
+        run: |
+          set -eux
           curl -L -f --retry 5 -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
           curl -L -f --retry 5 -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
           unzip -q godot.zip
           chmod +x "$GODOT_BIN"
-          TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          mkdir -p "$TDIR"
-          unzip -q templates.tpz -d t
-          cp t/templates/* "$TDIR/"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          unzip -q templates.tpz -d template
+          cp template/templates/* "$TEMPLATE_DIR/"
+      - name: Configure Godot Android export paths
+        shell: bash
+        run: |
+          set -eux
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
-
-      - name: Validate, export, and compress
+      - name: Import, export, compress
+        shell: bash
         run: |
           set -eux
           test -f godot/project.godot
           test -f godot/Main.tscn
           test -f godot/Main.gd
-          sed -i 's/func show(/func show_msg(/g; s/show(/show_msg(/g' godot/Main.gd
           ./"$GODOT_BIN" --headless --path godot --import --quit
-
-          TDIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           rm -rf godot/android
           mkdir -p godot/android/build
-          unzip -q "$TDIR/android_source.zip" -d godot/android/build
-          cp "$TDIR/version.txt" godot/android/.build_version
+          unzip -q "$TEMPLATE_DIR/android_source.zip" -d godot/android/build
+          cp "$TEMPLATE_DIR/version.txt" godot/android/.build_version
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
-
+          rm -rf Builds Source
           mkdir -p Builds Source
-          ./"$GODOT_BIN" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/BackroomsLevelZero.apk"
-          test -s Builds/BackroomsLevelZero.apk
-
-          7z a -t7z -mx=9 Builds/BackroomsLevelZero.apk.7z Builds/BackroomsLevelZero.apk
-          test -s Builds/BackroomsLevelZero.apk.7z
-
+          ./"$GODOT_BIN" --headless --path godot --export-debug "Android Debug" "$GITHUB_WORKSPACE/Builds/${APK_NAME}"
+          test -s "Builds/${APK_NAME}"
+          APK_SIZE=$(wc -c < "Builds/${APK_NAME}")
+          echo "APK size: ${APK_SIZE} bytes"
+          if [ "$APK_SIZE" -lt 1000000 ]; then
+            echo "APK is too small; this is not the full Godot game APK."
+            exit 1
+          fi
+          7z a -t7z -mx=9 "Builds/${APK_7Z_NAME}" "Builds/${APK_NAME}"
+          test -s "Builds/${APK_7Z_NAME}"
           rm -rf godot/android godot/.godot
-          zip -r Source/BackroomsLevelZeroProject.zip godot README_GODOT_3D.md Documentation/TRUE_3D_GODOT_IMPLEMENTATION.md MISSING_FEATURES.md .github/workflows/godot-android-build.yml -x "godot/.godot/*"
-          test -s Source/BackroomsLevelZeroProject.zip
-
-          echo "Generated files:"
-          ls -lh Builds/BackroomsLevelZero.apk Builds/BackroomsLevelZero.apk.7z Source/BackroomsLevelZeroProject.zip
-
-      - uses: actions/upload-artifact@v4
+          zip -r "Source/${SOURCE_ZIP_NAME}" godot README_GODOT_3D.md Documentation MISSING_FEATURES.md .github/workflows/godot-android-build.yml -x "godot/.godot/*" "godot/android/*"
+          test -s "Source/${SOURCE_ZIP_NAME}"
+          ls -lh "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}"
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: BackroomsLevelZero-APK
-          path: Builds/BackroomsLevelZero.apk
+          name: BackroomsLevelZero-build-files
+          path: |
+            Builds/${{ env.APK_NAME }}
+            Builds/${{ env.APK_7Z_NAME }}
+            Source/${{ env.SOURCE_ZIP_NAME }}
           if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: BackroomsLevelZero-APK-Compressed-7z
-          path: Builds/BackroomsLevelZero.apk.7z
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: BackroomsLevelZeroProject-Source
-          path: Source/BackroomsLevelZeroProject.zip
-          if-no-files-found: error
-
-      - name: Publish release
-        if: github.event_name != 'pull_request'
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -eux
-          TAG="godot-level-zero-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" \
-            Builds/BackroomsLevelZero.apk \
-            Builds/BackroomsLevelZero.apk.7z \
-            Source/BackroomsLevelZeroProject.zip \
-            --title "Backrooms Level Zero Godot Build ${GITHUB_RUN_NUMBER}" \
-            --notes "Generated APK, compressed APK.7z for low-data download, and source ZIP from ${GITHUB_SHA}." \
-            --latest
+          TAG="godot-apk-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Backrooms Level Zero Android Build ${GITHUB_RUN_NUMBER}" --notes "Full Godot Android APK, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}." --latest
