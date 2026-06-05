@@ -14,38 +14,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download textures and patch Godot
+      - name: Generate optimized Backrooms texture set and patch Godot
         shell: bash
         run: |
           set -eux
-          mkdir -p godot/assets/textures /tmp/tex
-          cd /tmp/tex
-          curl -L --retry 5 -o Fabric028_1K-JPG.zip "https://ambientcg.com/get?file=Fabric028_1K-JPG.zip"
-          curl -L --retry 5 -o OfficeCeiling001_1K-JPG.zip "https://ambientcg.com/get?file=OfficeCeiling001_1K-JPG.zip"
-          curl -L --retry 5 -o Plastic005_1K-JPG.zip "https://ambientcg.com/get?file=Plastic005_1K-JPG.zip"
-          unzip -q -o Fabric028_1K-JPG.zip Fabric028_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          unzip -q -o OfficeCeiling001_1K-JPG.zip OfficeCeiling001_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          unzip -q -o Plastic005_1K-JPG.zip Plastic005_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          cd "$GITHUB_WORKSPACE/godot/assets/textures"
-          mv Fabric028_1K-JPG_Color.jpg carpet_dirty_color.jpg
-          mv OfficeCeiling001_1K-JPG_Color.jpg ceiling_tiles_color.jpg
-          mv Plastic005_1K-JPG_Color.jpg plastic_panel_color.jpg
+          mkdir -p godot/assets/textures
+          cd godot/assets/textures
           python3 - <<'PY'
           from pathlib import Path
-          import zlib, struct, random
+          import zlib, struct, random, math
           def ch(t,d):
               return struct.pack("!I",len(d))+t+d+struct.pack("!I",zlib.crc32(t+d)&0xffffffff)
-          w=h=128; raw=b""; random.seed(7)
-          for y in range(h):
-              row=bytearray([0])
-              for x in range(w):
-                  stripe=18 if (x//14)%2 else -3; n=random.randint(-7,7)
-                  row += bytes([max(0,min(255,184+stripe+n)), max(0,min(255,158+stripe//2+n)), max(0,min(255,66+n//2))])
-              raw += bytes(row)
-          Path("wallpaper_yellow_color.png").write_bytes(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack("!IIBBBBB",w,h,8,2,0,0,0))+ch(b"IDAT",zlib.compress(raw,9))+ch(b"IEND",b""))
+          def png(name, w, h, fn):
+              raw=b""
+              for y in range(h):
+                  row=bytearray([0])
+                  for x in range(w):
+                      row += bytes([max(0,min(255,int(v))) for v in fn(x,y)])
+                  raw += bytes(row)
+              data=b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack("!IIBBBBB",w,h,8,2,0,0,0))+ch(b"IDAT",zlib.compress(raw,9))+ch(b"IEND",b"")
+              Path(name).write_bytes(data)
+          random.seed(8)
+          def noise(x,y): return random.Random(x*928371+y*1237).randint(-10,10)
+          png("wallpaper_yellow_color.png",256,256,lambda x,y:(184+(18 if (x//18)%2 else -4)+noise(x,y),158+(8 if (x//18)%2 else -2)+noise(x,y),66+noise(x,y)//2))
+          png("carpet_dirty_color.png",256,256,lambda x,y:(78+noise(x,y)+(12 if (x+y)%17<3 else 0),62+noise(x,y),34+noise(x,y)//2))
+          png("ceiling_tiles_color.png",256,256,lambda x,y:(170-45*(x%64<3 or y%64<3)+noise(x,y),166-45*(x%64<3 or y%64<3)+noise(x,y),130-35*(x%64<3 or y%64<3)+noise(x,y)))
+          png("plastic_panel_color.png",128,128,lambda x,y:(220+noise(x,y)//2,208+noise(x,y)//2,160+noise(x,y)//3))
+          png("grime_stain_color.png",256,256,lambda x,y:(45+noise(x,y),34+noise(x,y)//2,16+noise(x,y)//3))
           main=Path("../../Main.gd"); s=main.read_text()
           a=s.index("func mat("); b=s.index("func make_level():")
-          block="func mat(c, rough := 0.8, texture_path := \"\"):\n\tvar m := StandardMaterial3D.new()\n\tm.albedo_color = c\n\tm.roughness = rough\n\tif texture_path != \"\" and ResourceLoader.exists(texture_path):\n\t\tm.albedo_texture = load(texture_path)\n\treturn m\n\nfunc make_materials():\n\twall_m = mat(Color(0.72, 0.63, 0.25), 0.95, \"res://assets/textures/wallpaper_yellow_color.png\")\n\tfloor_m = mat(Color(0.30, 0.24, 0.12), 0.98, \"res://assets/textures/carpet_dirty_color.jpg\")\n\tceil_m = mat(Color(0.62, 0.60, 0.46), 0.90, \"res://assets/textures/ceiling_tiles_color.jpg\")\n\tlight_m = mat(Color(1.0, 0.90, 0.55), 0.2, \"res://assets/textures/plastic_panel_color.jpg\")\n\tlight_m.emission_enabled = true\n\tlight_m.emission = Color(1.0, 0.88, 0.45)\n\tlight_m.emission_energy_multiplier = 1.25\n"
+          block="func mat(c, rough := 0.8, texture_path := \"\"):\n\tvar m := StandardMaterial3D.new()\n\tm.albedo_color = c\n\tm.roughness = rough\n\tif texture_path != \"\" and ResourceLoader.exists(texture_path):\n\t\tm.albedo_texture = load(texture_path)\n\treturn m\n\nfunc make_materials():\n\twall_m = mat(Color(0.72, 0.63, 0.25), 0.95, \"res://assets/textures/wallpaper_yellow_color.png\")\n\tfloor_m = mat(Color(0.30, 0.24, 0.12), 0.98, \"res://assets/textures/carpet_dirty_color.png\")\n\tceil_m = mat(Color(0.62, 0.60, 0.46), 0.90, \"res://assets/textures/ceiling_tiles_color.png\")\n\tlight_m = mat(Color(1.0, 0.90, 0.55), 0.2, \"res://assets/textures/plastic_panel_color.png\")\n\tlight_m.emission_enabled = true\n\tlight_m.emission = Color(1.0, 0.88, 0.45)\n\tlight_m.emission_energy_multiplier = 1.25\n"
           main.write_text(s[:a]+block+s[b:])
           PY
       - name: Commit
@@ -53,4 +51,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add godot/Main.gd godot/assets/textures
-          git diff --cached --quiet || (git commit -m "Integrate Backrooms texture pack" && git push)
+          git diff --cached --quiet || (git commit -m "Integrate generated Backrooms texture materials" && git push)
