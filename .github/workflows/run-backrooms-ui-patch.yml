@@ -1,0 +1,34 @@
+name: Run Backrooms UI Patch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/run-backrooms-ui-patch.yml"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute embedded Backrooms UI patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          wf = Path(".github/workflows/patch-backrooms-ui-controls-logs.yml").read_text()
+          marker = "python3 - <<'PY'\n"
+          start = wf.index(marker) + len(marker)
+          end = wf.index("\n          PY", start)
+          code = textwrap.dedent(wf[start:end])
+          exec(compile(code, "embedded_backrooms_patch.py", "exec"), {})
+          PY
+      - name: Commit patched game script
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add godot/Main.gd godot/project.godot
+          git diff --cached --quiet || (git commit -m "Apply Backrooms UI touch logs overhaul" && git push)
