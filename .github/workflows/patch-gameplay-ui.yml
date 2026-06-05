@@ -1,39 +1,10 @@
-name: Patch Gameplay Collision Fix
+name: Disabled - Old gameplay patch
+
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/patch-gameplay-ui.yml"
-permissions:
-  contents: write
+
 jobs:
-  patch:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Add collision bodies
-        shell: bash
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          p = Path("godot/Main.gd")
-          s = p.read_text()
-          new_box = (
-              "func box(parent,pos,size,material,collidable:=true):\n"
-              "\tvar m=MeshInstance3D.new(); var b=BoxMesh.new(); b.size=size; m.mesh=b; m.material_override=material; parent.add_child(m); m.position=pos\n"
-              "\tif collidable and not (parent is CharacterBody3D) and not (parent is Camera3D):\n"
-              "\t\tvar body:=StaticBody3D.new(); var shape:=CollisionShape3D.new(); var bs:=BoxShape3D.new()\n"
-              "\t\tbs.size=size; shape.shape=bs; body.add_child(shape); parent.add_child(body); body.position=pos\n"
-              "\treturn m\n"
-          )
-          s = re.sub(r"func box\(parent,pos,size,material(?:,collidable:=true)?\):.*?return m\n", new_box, s, flags=re.S)
-          p.write_text(s)
-          PY
-      - name: Commit
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add godot/Main.gd
-          git diff --cached --quiet || (git commit -m "Add collision bodies to Level 0 geometry" && git push)
+      - run: echo "Disabled. Use Build and Release Godot Android APK instead."
