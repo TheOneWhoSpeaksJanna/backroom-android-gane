@@ -24,23 +24,23 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -235.0
-offset_right = 250.0
-offset_bottom = 235.0
+offset_left = -300.0
+offset_top = -245.0
+offset_right = 300.0
+offset_bottom = 245.0
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Center"]
 layout_mode = 2
-text = "BACKROOMS"
+text = "DESOLATION:"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 62
+theme_override_font_sizes/font_size = 60
 
 [node name="Subtitle" type="Label" parent="Center"]
 layout_mode = 2
-text = "LEVEL ZERO"
+text = "THE BACKROOMS"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 36
 
 [node name="Buttons" type="VBoxContainer" parent="Center"]
 layout_mode = 2
