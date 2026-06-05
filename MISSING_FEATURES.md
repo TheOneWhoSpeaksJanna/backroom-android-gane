@@ -4,32 +4,43 @@ This file tracks what is still missing before the project feels like a high-end,
 
 ## Current state
 
-The project has a playable Godot 4.4.1 APK build path and a true 3D Level 0 foundation. It is still closer to an atmospheric prototype than a full commercial-feeling Backrooms game.
+The project now has a playable Godot 4.4.1 APK build path, true 3D Level 0 foundation, generated Backrooms materials, and a first real gameplay pass. It is still not a finished commercial game, but the prototype now includes a complete objective loop, menus, mobile controls, checkpointing, atmosphere, and pressure mechanics.
 
-## Missing gameplay
+## Implemented in `implement-missing-features`
 
-- A complete objective loop, such as find the exit door, collect fuses, restore lights, or follow environmental clues.
-- Win and lose conditions.
-- A threat system that stays psychological but creates pressure, such as a simple roaming entity, proximity tension, or sanity.
- - An interaction system for notes, doors, switches, collectibles, and environmental events.
- - Save or checkpoint logic for mobile players.
+- Main menu, pause menu, restart, quit, and settings panel.
+- Settings sliders for look sensitivity, brightness, and volume.
+- Objective loop: collect three fuses, power the service exit, and escape.
+- Win and lose states with end screens.
+- Interaction/proximity logic for fuses, notes, and the exit door.
+- Mobile checkpoint save/load logic using `user://checkpoint.cfg`.
+- Polished virtual joystick, look area, sprint button, pause button, stamina display, and sanity display.
+- Simple psychological threat/entity that follows the player and drains sanity when close.
+- Ambient event messages, carpet step feedback, flicker/hum/thud text cues, fog, vignette-like pressure shade, and brightness tuning.
+- More Level 0 variety: pillars, grime patches, notes, maintenance/dead-end geometry, exit landmark, and extra material usage.
 
-## Missing mobile features
+## Still missing gameplay
 
-- Refined virtual joystick, look area, sprint button, pause button, and UI scaling.
-- Settings for sensitivity, volume, brightness, graphics, frame cap, and control layout.
-- Main menu, pause menu, credits, restart, and back/quit behavior.
-- Low-data download asset for the compressed `.apk.7z` file. Android cannot install `.sevenZ`/`.7z` directly; the APK must be extracted first.
+- A deeper narrative route with multiple endings and more varied clue chains.
+- Manual interaction prompts for doors, switches, lockers, and inspectable objects.
+- More advanced enemy behavior, line-of-sight hiding, distraction, or stealth tools.
+- Multiple checkpoints/save slots and resume-from-menu UX.
 
-## Missing visual and audio polish
+## Still missing mobile features
 
-- More modular Level 0 variety: damaged wallpaper, pillars, dead ends, maintenance rooms, and rare landmarks.
-- More realistic materials: wallpaper, damp carpet, ceiling tiles, stains, dirt, and grime.
-- Lighting variety: broken lights, flicker zones, dark pockets, and fluorescent color variation.
-- Mobile-safe vignette, film grain, color grading, subtle fog, and head-bob tuning.
-- Fluorescent hum, carpet footsteps, distant thuds, buzzing, flicker sounds, and menu sounds.
+- Full control layout customization.
+- Frame cap and graphics quality presets.
+- Better Android back-button handling across all menu states.
+- Low-data download page/asset instructions for the compressed `.apk.7z` file. Android cannot install `.sevenZ`/`.7z` directly; the APK must be extracted first.
 
-## Missing optimization
+## Still missing visual and audio polish
+
+- More modular Level 0 sets: damaged wallpaper variants, maintenance rooms, dead ends, and rare landmarks.
+- Real audio assets for fluorescent hum, carpet footsteps, distant thuds, buzzing, flicker sounds, and menu sounds.
+- Real post-processing pass for film grain, color grading, vignettes, and tuned head bob.
+- More lighting variety with authored broken lights, dark pockets, and flicker zones.
+
+## Still missing optimization
 
 - Release export mode; the current pipeline uses debug export for reliability.
 - Smaller texture budgets, audio compression, and unused asset removal.
@@ -39,11 +50,10 @@ The project has a playable Godot 4.4.1 APK build path and a true 3D Level 0 foun
 
 ## Best next order
 
-1. Add main menu, pause menu, and settings.
-2. Add objective system and exit-door ending.
-3. Add polished Android touch controls.
-4. Add footsteps, fluorescent hum, and random ambience.
-5. Add a simple psychological threat/entity.
-6. Add more Level 0 room variation.
-7. Convert debug build into a smaller release build.
-8. Continue APK size optimization.
+1. Add real audio assets and connect them to footsteps, hum, ambience, and menus.
+2. Add manual interaction prompts and switch/door logic.
+3. Expand Level 0 with more room modules and authored landmarks.
+4. Add graphics/frame-cap settings and control layout customization.
+5. Improve the threat with stealth, hiding, and line-of-sight behavior.
+6. Convert debug build into a smaller release build.
+7. Continue APK size optimization.
