@@ -1,4 +1,4 @@
-name: Apply Uploaded Texture Pack
+name: Apply Uploaded Textures
 
 on:
   workflow_dispatch:
@@ -10,91 +10,47 @@ permissions:
   contents: write
 
 jobs:
-  apply-textures:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download CC0 texture packs and patch Godot materials
+      - name: Download textures and patch Godot
         shell: bash
         run: |
           set -eux
-          mkdir -p godot/assets/textures /tmp/backrooms_textures
-          cd /tmp/backrooms_textures
-
+          mkdir -p godot/assets/textures /tmp/tex
+          cd /tmp/tex
           curl -L --retry 5 -o Fabric028_1K-JPG.zip "https://ambientcg.com/get?file=Fabric028_1K-JPG.zip"
           curl -L --retry 5 -o OfficeCeiling001_1K-JPG.zip "https://ambientcg.com/get?file=OfficeCeiling001_1K-JPG.zip"
-          curl -L --retry 5 -o PaintedMetal001_1K-JPG.zip "https://ambientcg.com/get?file=PaintedMetal001_1K-JPG.zip"
           curl -L --retry 5 -o Plastic005_1K-JPG.zip "https://ambientcg.com/get?file=Plastic005_1K-JPG.zip"
-          curl -L --retry 5 -o Wood026_1K-JPG.zip "https://ambientcg.com/get?file=Wood026_1K-JPG.zip"
-          curl -L --retry 5 -o Leaking005_1K-JPG.zip "https://ambientcg.com/get?file=Leaking005_1K-JPG.zip"
-
           unzip -q -o Fabric028_1K-JPG.zip Fabric028_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
           unzip -q -o OfficeCeiling001_1K-JPG.zip OfficeCeiling001_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          unzip -q -o PaintedMetal001_1K-JPG.zip PaintedMetal001_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
           unzip -q -o Plastic005_1K-JPG.zip Plastic005_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          unzip -q -o Wood026_1K-JPG.zip Wood026_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-          unzip -q -o Leaking005_1K-JPG.zip Leaking005_1K-JPG_Color.jpg -d "$GITHUB_WORKSPACE/godot/assets/textures"
-
           cd "$GITHUB_WORKSPACE/godot/assets/textures"
           mv Fabric028_1K-JPG_Color.jpg carpet_dirty_color.jpg
           mv OfficeCeiling001_1K-JPG_Color.jpg ceiling_tiles_color.jpg
-          mv PaintedMetal001_1K-JPG_Color.jpg painted_metal_color.jpg
           mv Plastic005_1K-JPG_Color.jpg plastic_panel_color.jpg
-          mv Wood026_1K-JPG_Color.jpg door_wood_color.jpg
-          mv Leaking005_1K-JPG_Color.jpg leak_stain_color.jpg
-
           python3 - <<'PY'
           from pathlib import Path
           import zlib, struct, random
-          def png_chunk(tag, data):
-              return struct.pack("!I", len(data)) + tag + data + struct.pack("!I", zlib.crc32(tag + data) & 0xffffffff)
-          w=h=256
-          raw=b""
-          random.seed(11)
+          def ch(t,d):
+              return struct.pack("!I",len(d))+t+d+struct.pack("!I",zlib.crc32(t+d)&0xffffffff)
+          w=h=128; raw=b""; random.seed(7)
           for y in range(h):
               row=bytearray([0])
               for x in range(w):
-                  stripe = 20 if (x//20)%2 else -3
-                  grime = random.randint(-8,8)
-                  r=max(0,min(255,184+stripe+grime))
-                  g=max(0,min(255,158+stripe//2+grime))
-                  b=max(0,min(255,66+grime//2))
-                  row += bytes([r,g,b])
+                  stripe=18 if (x//14)%2 else -3; n=random.randint(-7,7)
+                  row += bytes([max(0,min(255,184+stripe+n)), max(0,min(255,158+stripe//2+n)), max(0,min(255,66+n//2))])
               raw += bytes(row)
-          data = b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", struct.pack("!IIBBBBB", w,h,8,2,0,0,0)) + png_chunk(b"IDAT", zlib.compress(raw, 9)) + png_chunk(b"IEND", b"")
-          Path("wallpaper_yellow_color.png").write_bytes(data)
-
-          main = Path("../../Main.gd")
-          s = main.read_text()
-          start = s.index("func mat(")
-          end = s.index("func make_level():")
-          block = """func mat(c, rough := 0.8, texture_path := ""):
-\tvar m := StandardMaterial3D.new()
-\tm.albedo_color = c
-\tm.roughness = rough
-\tif texture_path != "" and ResourceLoader.exists(texture_path):
-\t\tm.albedo_texture = load(texture_path)
-\treturn m
-
-func make_materials():
-\twall_m = mat(Color(0.72, 0.63, 0.25), 0.95, "res://assets/textures/wallpaper_yellow_color.png")
-\tfloor_m = mat(Color(0.30, 0.24, 0.12), 0.98, "res://assets/textures/carpet_dirty_color.jpg")
-\tceil_m = mat(Color(0.62, 0.60, 0.46), 0.90, "res://assets/textures/ceiling_tiles_color.jpg")
-\tlight_m = mat(Color(1.0, 0.90, 0.55), 0.2, "res://assets/textures/plastic_panel_color.jpg")
-\tlight_m.emission_enabled = true
-\tlight_m.emission = Color(1.0, 0.88, 0.45)
-\tlight_m.emission_energy_multiplier = 1.25
-
-"""
-          s = s[:start] + block + s[end:]
-          main.write_text(s)
+          Path("wallpaper_yellow_color.png").write_bytes(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack("!IIBBBBB",w,h,8,2,0,0,0))+ch(b"IDAT",zlib.compress(raw,9))+ch(b"IEND",b""))
+          main=Path("../../Main.gd"); s=main.read_text()
+          a=s.index("func mat("); b=s.index("func make_level():")
+          block="func mat(c, rough := 0.8, texture_path := \"\"):\n\tvar m := StandardMaterial3D.new()\n\tm.albedo_color = c\n\tm.roughness = rough\n\tif texture_path != \"\" and ResourceLoader.exists(texture_path):\n\t\tm.albedo_texture = load(texture_path)\n\treturn m\n\nfunc make_materials():\n\twall_m = mat(Color(0.72, 0.63, 0.25), 0.95, \"res://assets/textures/wallpaper_yellow_color.png\")\n\tfloor_m = mat(Color(0.30, 0.24, 0.12), 0.98, \"res://assets/textures/carpet_dirty_color.jpg\")\n\tceil_m = mat(Color(0.62, 0.60, 0.46), 0.90, \"res://assets/textures/ceiling_tiles_color.jpg\")\n\tlight_m = mat(Color(1.0, 0.90, 0.55), 0.2, \"res://assets/textures/plastic_panel_color.jpg\")\n\tlight_m.emission_enabled = true\n\tlight_m.emission = Color(1.0, 0.88, 0.45)\n\tlight_m.emission_energy_multiplier = 1.25\n"
+          main.write_text(s[:a]+block+s[b:])
           PY
-
-      - name: Commit texture integration
-        shell: bash
+      - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add godot/Main.gd godot/assets/textures
-          git diff --cached --quiet || (git commit -m "Integrate CC0 Backrooms texture pack" && git push)
+          git diff --cached --quiet || (git commit -m "Integrate Backrooms texture pack" && git push)
