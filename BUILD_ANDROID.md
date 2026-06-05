@@ -1,5 +1,19 @@
 # Android Build Instructions
 
+## Real app format
+
+This project is now a Godot Android game only.
+
+```text
+Engine: Godot 4.4.1
+Game code: GDScript
+Scenes/UI: .tscn
+Assets: JPG/PNG under godot/assets/
+Android output: APK exported by Godot
+```
+
+The old native Java/Gradle Android placeholder project was removed because it was not the real game and produced the tiny placeholder APK.
+
 ## Use this workflow
 
 Use only this workflow for game APK builds:
@@ -9,7 +23,11 @@ Build and Release Godot Android APK
 .github/workflows/godot-android-build.yml
 ```
 
-This is the only workflow that should build the real Godot game APK and publish release files.
+This workflow builds the real Godot project under:
+
+```text
+godot/
+```
 
 ## What it creates
 
@@ -21,13 +39,7 @@ Builds/BackroomsLevelZero.apk.7z
 Source/BackroomsLevelZeroProject.zip
 ```
 
-It also uploads those files as workflow artifacts and publishes them to a GitHub Release.
-
-## Why the old APK was only about 24 KB
-
-The old workflow named `Build Android APK` built the native Android placeholder project under `app/`, not the Godot project under `godot/`.
-
-That APK is tiny because it is not the full Godot game. It is now disabled so it does not confuse releases.
+It uploads those files as workflow artifacts and publishes them to a GitHub Release.
 
 ## How to run the build
 
@@ -60,21 +72,4 @@ After the workflow succeeds:
 
 ## Safety check
 
-The workflow fails if the APK is under 1 MB. That prevents another tiny placeholder APK from being released accidentally.
-
-## Disabled workflows
-
-These old workflows are intentionally disabled and only exist so old links do not disappear:
-
-```text
-android-build.yml
-apply-critical-fixes.yml
-apply-uploaded-textures.yml
-finish-ui-pause-stamina.yml
-patch-backrooms-ui-controls-logs.yml
-patch-collision-ui.yml
-patch-gameplay-ui.yml
-run-backrooms-ui-patch.yml
-```
-
-Do not use those for releases.
+The workflow fails if the APK is under 1 MB. That prevents tiny placeholder APKs from being released accidentally.
