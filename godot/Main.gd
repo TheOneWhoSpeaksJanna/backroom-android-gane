@@ -70,21 +70,22 @@ func log_event(tag, text := ""):
 		log_file.store_line(line)
 		log_file.flush()
 
-func mat(c, rough := 0.8):
+func mat(c, rough := 0.8, texture_path := ""):
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = rough
+	if texture_path != "" and ResourceLoader.exists(texture_path):
+		m.albedo_texture = load(texture_path)
 	return m
 
 func make_materials():
-	wall_m = mat(Color(0.72, 0.63, 0.25), 0.95)
-	floor_m = mat(Color(0.30, 0.24, 0.12), 0.98)
-	ceil_m = mat(Color(0.62, 0.60, 0.46), 0.9)
-	light_m = mat(Color(1.0, 0.90, 0.55), 0.2)
+	wall_m = mat(Color(0.72, 0.63, 0.25), 0.95, "res://assets/textures/wallpaper_yellow_color.png")
+	floor_m = mat(Color(0.30, 0.24, 0.12), 0.98, "res://assets/textures/carpet_dirty_color.png")
+	ceil_m = mat(Color(0.62, 0.60, 0.46), 0.90, "res://assets/textures/ceiling_tiles_color.png")
+	light_m = mat(Color(1.0, 0.90, 0.55), 0.2, "res://assets/textures/plastic_panel_color.png")
 	light_m.emission_enabled = true
 	light_m.emission = Color(1.0, 0.88, 0.45)
 	light_m.emission_energy_multiplier = 1.25
-
 func make_level():
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
