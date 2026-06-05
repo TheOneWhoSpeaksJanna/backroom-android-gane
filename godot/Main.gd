@@ -62,7 +62,7 @@ func _make_materials() -> void:
 	light_mat.emission = Color(1.0, 0.86, 0.45)
 	light_mat.emission_energy_multiplier = 1.3
 	leak_mat = make_mat(Color(0.28, 0.22, 0.12, 0.88), "res://assets/textures/uploaded/wall_leak_color.jpg", "res://assets/textures/uploaded/wall_leak_normal_gl.jpg", "res://assets/textures/uploaded/wall_leak_roughness.jpg", 0.0, 0.95, Vector3(1, 1, 1))
-leak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	leak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	leak_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	metal_mat = make_mat(Color(0.25, 0.23, 0.20), "res://assets/textures/uploaded/painted_metal_color.jpg", "res://assets/textures/uploaded/painted_metal_normal_gl.jpg", "res://assets/textures/uploaded/painted_metal_roughness.jpg", 0.2, 0.76, Vector3(2, 2, 1))
 	raw_metal_mat = make_mat(Color(0.18, 0.18, 0.17), "res://assets/textures/uploaded/raw_metal_color.jpg", "res://assets/textures/uploaded/raw_metal_normal_gl.jpg", "res://assets/textures/uploaded/raw_metal_roughness.jpg", 0.7, 0.68, Vector3(3, 1, 1))
@@ -308,10 +308,8 @@ func use_action() -> void:
 			game_over = true
 		else:
 			show_msg("The exit has no power. Find the blue fuses.", 1.8)
-
-
-	eleif true:
-		show_msg("Nothing close enough to use.", 1.1)
+			return
+    show_msg("Nothing close enough to use.", 1.1)
 
 func update_hud(delta: float) -> void:
 	hud.text = "Fuses %d/%d  |  Exit %s  |  Stamina %d%%  |  Sanity %d%%" % [fuses_collected, fuses_required, "OPEN" if exit_unlocked else "LOCKED", int(stamina * 100.0), int(sanity * 100.0)]
