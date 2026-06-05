@@ -19,190 +19,209 @@ env:
 
 jobs:
   unity-cloud-release:
-    name: Trigger Unity Cloud and publish GitHub Release
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Unity Cloud build and download artifact
+      - name: Trigger Unity Cloud build and download APK
         env:
+          UNITY_BUILD_API_KEY: ${{ secrets.UNITY_BUILD_API_KEY }}
+          UNITY_ARTIFACT_API_KEY: ${{ secrets.UNITY_ARTIFACT_API_KEY }}
           UNITY_BUILD: ${{ secrets.UNITY_BUILD }}
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p logs dist
           cat > unity_cloud_release.py <<'PY'
-          import json, os, re, shutil, sys, time, urllib.error, urllib.request, zipfile
+          import json, os, re, time, urllib.error, urllib.parse, urllib.request, zipfile, shutil
           from pathlib import Path
 
-          api_key = os.environ.get("UNITY_BUILD", "").strip()
-          if not api_key:
-              raise SystemExit("Missing repository secret UNITY_BUILD.")
+          def clean(v): return "".join((v or "").split())
+          key = clean(os.getenv("UNITY_BUILD_API_KEY")) or clean(os.getenv("UNITY_ARTIFACT_API_KEY")) or clean(os.getenv("UNITY_BUILD"))
+          if not key: raise SystemExit("Missing Unity API key secret")
+          base = os.environ["UNITY_BUILD_API_BASE"].rstrip("/")
+          headers = {"Authorization": "Basic " + key, "Content-Type": "application/json"}
 
-          build_base = os.environ["UNITY_BUILD_API_BASE"].rstrip("/")
-          project_name = os.environ["UNITY_PROJECT_NAME"]
-          target_name = os.environ["UNITY_BUILD_TARGET_NAME"]
-          headers = {"Authorization": "Basic " + api_key, "Content-Type": "application/json"}
+          def save(name, data):
+              p = Path("logs") / name
+              if isinstance(data, (dict, list)): data = json.dumps(data, indent=2)
+              if isinstance(data, bytes): p.write_bytes(data)
+              else: p.write_text(str(data), encoding="utf-8")
 
-          def req(method, url, data=None, allow_empty=False):
+          def redirect_url(err):
+              loc = err.headers.get("Location") or ""
+              if loc: return loc.strip().strip('"')
+              reason = str(getattr(err, "reason", "") or "").strip().strip('"')
+              if reason.startswith("http"): return reason
+              body = err.read().decode("utf-8", "ignore").strip().strip('"')
+              return body if body.startswith("http") else ""
+
+          def req(method, url, data=None, raw=False, optional=False):
               body = json.dumps(data).encode() if data is not None else None
-              request = urllib.request.Request(url, data=body, headers=headers, method=method)
               try:
-                  with urllib.request.urlopen(request) as response:
-                      raw = response.read().decode("utf-8", "ignore")
-                      if not raw.strip():
-                          return {} if allow_empty else {}
-                      return json.loads(raw)
-              except urllib.error.HTTPError as err:
-                  msg = err.read().decode("utf-8", "ignore")
-                  raise SystemExit(f"{method} {url} failed: HTTP {err.code} {msg}")
+                  r = urllib.request.Request(url, data=body, headers=headers, method=method)
+                  with urllib.request.urlopen(r, timeout=180) as resp:
+                      payload = resp.read()
+                      if raw: return payload
+                      text = payload.decode("utf-8", "ignore")
+                      if not text.strip(): return {}
+                      try: return json.loads(text)
+                      except Exception: return text
+              except urllib.error.HTTPError as e:
+                  if e.code in (301,302,303,307,308):
+                      u = redirect_url(e)
+                      if u: return u if not raw else urllib.request.urlopen(u, timeout=180).read()
+                  if optional:
+                      save("optional_errors.txt", f"{method} {url}\nHTTP {e.code}\n")
+                      return None
+                  raise
+              except Exception as e:
+                  if optional:
+                      save("optional_errors.txt", f"{method} {url}\n{e}\n")
+                      return None
+                  raise
 
-          def items(value):
-              if isinstance(value, list):
-                  return value
-              if isinstance(value, dict):
-                  for key in ("results", "projects", "buildtargets", "buildTargets", "builds", "items", "data"):
-                      if isinstance(value.get(key), list):
-                          return value[key]
+          def arr(x):
+              if isinstance(x, list): return x
+              if isinstance(x, dict):
+                  for k in ("results","projects","buildtargets","buildTargets","builds","items","data"):
+                      if isinstance(x.get(k), list): return x[k]
               return []
 
-          def pick(data, keys):
-              if not isinstance(data, dict):
-                  return ""
-              for key in keys:
-                  value = data.get(key)
-                  if value is not None and value != "":
-                      return str(value)
+          def pick(d, keys):
+              if not isinstance(d, dict): return ""
+              for k in keys:
+                  if d.get(k) not in (None, ""): return str(d[k])
               return ""
 
-          print("Discovering Unity project")
-          projects = items(req("GET", build_base + "/projects"))
-          project = next((p for p in projects if str(p.get("name", p.get("projectName", ""))) == project_name), None)
-          if project is None:
-              found = [str(p.get("name", p.get("projectName", ""))) for p in projects]
-              raise SystemExit(f"Could not find Unity project {project_name!r}. Found: {found}")
+          def walk(x):
+              if isinstance(x, dict):
+                  for k,v in x.items():
+                      yield k,v
+                      yield from walk(v)
+              elif isinstance(x, list):
+                  for v in x: yield from walk(v)
 
-          org_id = pick(project, ["orgid", "orgId", "org_id", "organizationId", "organizationid"])
-          project_id = pick(project, ["projectid", "projectId", "project_id", "id", "guid"])
-          if not org_id or not project_id:
-              print(json.dumps(project, indent=2))
-              raise SystemExit("Project found but org/project ID fields were not clear.")
+          projects = req("GET", base + "/projects")
+          save("projects.json", projects)
+          project = next((p for p in arr(projects) if str(p.get("name", p.get("projectName", ""))) == os.environ["UNITY_PROJECT_NAME"]), None)
+          if not project: raise SystemExit("Unity project not found; see logs/projects.json")
+          org = pick(project, ["orgid","orgId","org_id","organizationId","organizationid"])
+          pid = pick(project, ["projectid","projectId","project_id","id","guid"])
+          if not org or not pid: raise SystemExit("Could not detect org/project id")
 
-          print("Project:", project_name)
-          print("Org:", org_id)
-          print("Project ID:", project_id)
+          targets = req("GET", f"{base}/orgs/{org}/projects/{pid}/buildtargets")
+          save("buildtargets.json", targets)
+          target = next((t for t in arr(targets) if str(t.get("name", t.get("buildTargetName", t.get("targetName", "")))) == os.environ["UNITY_BUILD_TARGET_NAME"]), None)
+          if not target: target = next((t for t in arr(targets) if "android" in json.dumps(t).lower()), None)
+          if not target: raise SystemExit("Android build target not found")
+          tid = pick(target, ["buildtargetid","buildTargetId","buildtargetId","id","name","buildTargetName"])
+          print("Unity target", tid)
 
-          targets = items(req("GET", f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets"))
-          target = next((t for t in targets if str(t.get("name", t.get("buildTargetName", t.get("targetName", "")))) == target_name), None)
-          if target is None:
-              target = next((t for t in targets if "android" in json.dumps(t).lower()), None)
-          if target is None:
-              found = [str(t.get("name", t.get("buildTargetName", t.get("targetName", "")))) for t in targets]
-              raise SystemExit(f"Could not find build target {target_name!r}. Found: {found}")
+          build = req("POST", f"{base}/orgs/{org}/projects/{pid}/buildtargets/{tid}/builds", {})
+          save("trigger_response.json", build)
+          number = pick(build, ["number","build","buildNumber","build_number","buildnumber"])
+          for _ in range(12):
+              if number: break
+              time.sleep(10)
+              builds = req("GET", f"{base}/orgs/{org}/projects/{pid}/buildtargets/{tid}/builds")
+              save("latest_builds.json", builds)
+              if arr(builds): number = pick(arr(builds)[0], ["number","build","buildNumber","build_number","buildnumber"])
+          if not number: raise SystemExit("No build number found")
+          print("Build number", number)
+          Path("logs/build_number.txt").write_text(number, encoding="utf-8")
+          status_url = f"{base}/orgs/{org}/projects/{pid}/buildtargets/{tid}/builds/{number}"
 
-          target_id = pick(target, ["buildtargetid", "buildTargetId", "buildtargetId", "buildTargetID", "id", "name", "buildTargetName"])
-          if not target_id:
-              print(json.dumps(target, indent=2))
-              raise SystemExit("Build target found but ID field was not clear.")
-
-          print("Build target:", target_name)
-          print("Build target ID:", target_id)
-
-          print("Triggering Unity Cloud build")
-          build = req("POST", f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds", {}, allow_empty=True)
-          if not build:
-              list_builds = items(req("GET", f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds"))
-              build = list_builds[0] if list_builds else {}
-
-          number = pick(build, ["number", "build", "buildNumber", "build_number", "buildnumber"])
-          if not number:
-              for _ in range(12):
-                  time.sleep(10)
-                  list_builds = items(req("GET", f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds"))
-                  if list_builds:
-                      build = list_builds[0]
-                      number = pick(build, ["number", "build", "buildNumber", "build_number", "buildnumber"])
-                      if number:
-                          break
-          if not number:
-              print(json.dumps(build, indent=2))
-              raise SystemExit("Build started but could not discover build number.")
-
-          print("Build number:", number)
-          status_url = f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds/{number}"
           final = None
-          for attempt in range(90):
+          for i in range(90):
               detail = req("GET", status_url)
-              status = str(pick(detail, ["buildStatus", "status", "state", "result", "lifecycle"])).lower()
-              print(f"Attempt {attempt + 1}: status={status}")
-              if any(x in status for x in ("success", "finished", "finishedsuccess", "succeeded")):
+              save("latest_build_detail.json", detail)
+              status = pick(detail, ["buildStatus","status","state","result","lifecycle"]).lower()
+              print("Attempt", i+1, "status", status)
+              if any(x in status for x in ("success","finished","finishedsuccess","succeeded")):
                   final = detail
                   break
-              if any(x in status for x in ("fail", "error", "cancel", "cancelled")):
-                  print(json.dumps(detail, indent=2))
-                  raise SystemExit("Unity Cloud build failed.")
+              if any(x in status for x in ("fail","error","cancel","cancelled")):
+                  save("failed_build_detail.json", detail)
+                  for n in ("log","logs","download/build.log","download/Unity.log","download/Editor.log","download/logs.zip"):
+                      data = req("GET", status_url + "/" + n, raw=True, optional=True)
+                      if data: save("unity_" + n.replace("/","_"), data)
+                  raise SystemExit("Unity build failed; logs saved")
               time.sleep(20)
-
-          if final is None:
-              raise SystemExit("Unity Cloud build did not finish before the workflow timeout.")
-
-          def walk(value):
-              if isinstance(value, dict):
-                  for key, child in value.items():
-                      yield key, child
-                      yield from walk(child)
-              elif isinstance(value, list):
-                  for child in value:
-                      yield from walk(child)
-
-          filenames = []
-          for key, value in walk(final):
-              if isinstance(value, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", value):
-                  filenames.append(value.split("/")[-1].split("?")[0])
-              elif "filename" in key.lower() and isinstance(value, str):
-                  filenames.append(value)
+          if not final: raise SystemExit("Unity build timed out")
+          save("successful_build_detail.json", final)
 
           candidates = []
-          for name in filenames + ["build.apk", "Android.apk", "DefaultAndroid.apk", "Default%20Android.apk", "DesolationTheBackrooms.apk", "DesolationTheBackrooms-Unity.apk"]:
-              if name and name not in candidates:
-                  candidates.append(name)
+          def add(name):
+              if not name: return
+              name = str(name).split("?")[0].split("/")[-1].strip()
+              if name and name not in candidates: candidates.append(name)
 
-          Path("dist").mkdir(exist_ok=True)
-          output = Path("dist") / os.environ["RELEASE_APK_NAME"]
-          for filename in candidates:
-              download_endpoint = f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds/{number}/download/{filename}"
+          for k,v in walk(final):
+              if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v): add(v)
+              if isinstance(v, str) and "filename" in k.lower(): add(v)
+
+          def dl_url(filename):
+              safe = urllib.parse.quote(filename, safe="/")
+              r = req("GET", f"{status_url}/download/{safe}", optional=True)
+              if isinstance(r, str) and r.startswith("http"): return r
+              return pick(r, ["url","downloadUrl","href","link","location"]) if r else ""
+
+          files_url = dl_url("files.json")
+          if files_url:
               try:
-                  response = req("GET", download_endpoint)
-                  download = pick(response, ["url", "downloadUrl", "href", "link", "location"])
-                  if not download and isinstance(response, str):
-                      download = response
-                  if not download:
-                      continue
-                  print("Downloading artifact candidate", filename)
-                  urllib.request.urlretrieve(download, output)
-                  if output.exists() and output.stat().st_size > 1024 * 1024:
+                  data = urllib.request.urlopen(files_url, timeout=180).read()
+                  save("files.json", data)
+                  j = json.loads(data.decode("utf-8", "ignore"))
+                  for k,v in walk(j):
+                      if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v): add(v)
+              except Exception as e:
+                  save("files_json_error.txt", str(e))
+
+          for n in ("Default Android.apk","Default%20Android.apk","Android.apk","build.apk","Build.zip","build.zip"):
+              add(n)
+          save("artifact_candidates.json", candidates)
+
+          out = Path("dist") / os.environ["RELEASE_APK_NAME"]
+          for name in candidates:
+              u = dl_url(name)
+              if not u: continue
+              print("Downloading", name)
+              tmp = Path("dist") / ("tmp_" + name.replace("%20","_").replace(" ","_"))
+              try:
+                  urllib.request.urlretrieve(u, tmp)
+              except Exception as e:
+                  save("download_error_" + str(len(list(Path("logs").glob("download_error_*")))) + ".txt", f"{name}\n{e}")
+                  continue
+              if tmp.exists() and tmp.stat().st_size > 1024*1024:
+                  if tmp.suffix.lower() == ".zip":
+                      with zipfile.ZipFile(tmp) as z:
+                          apks = [x for x in z.namelist() if x.lower().endswith(".apk")]
+                          if apks:
+                              z.extract(apks[0], "dist")
+                              shutil.move(str(Path("dist")/apks[0]), out)
+                              break
+                  else:
+                      shutil.move(str(tmp), out)
                       break
-              except Exception as exc:
-                  print(f"Candidate {filename} did not download: {exc}")
 
-          if not output.exists() or output.stat().st_size <= 1024 * 1024:
-              try:
-                  share = req("POST", f"{build_base}/orgs/{org_id}/projects/{project_id}/buildtargets/{target_id}/builds/{number}/share", {}, allow_empty=True)
-                  print(json.dumps(share, indent=2))
-              except Exception as exc:
-                  print("Could not create share link:", exc)
-              print(json.dumps(final, indent=2))
-              raise SystemExit("Could not download an APK artifact automatically. Check the log for Unity artifact names.")
+          if not out.exists() or out.stat().st_size <= 1024*1024:
+              share = req("POST", status_url + "/share", {}, optional=True)
+              if share: save("share_response.json", share)
+              raise SystemExit("Build succeeded but APK artifact download failed; logs saved")
 
-          if output.suffix.lower() == ".zip":
-              with zipfile.ZipFile(output) as z:
-                  apks = [n for n in z.namelist() if n.lower().endswith(".apk")]
-                  if apks:
-                      z.extract(apks[0], "dist")
-                      shutil.move(str(Path("dist") / apks[0]), output)
-
-          with open("unity_build_meta.json", "w", encoding="utf-8") as handle:
-              json.dump({"org": org_id, "project": project_id, "target": target_id, "build": number}, handle, indent=2)
-          print(f"Downloaded {output} ({output.stat().st_size} bytes)")
+          Path("unity_build_meta.json").write_text(json.dumps({"org":org,"project":pid,"target":tid,"build":number}, indent=2), encoding="utf-8")
+          print("Downloaded", out, out.stat().st_size)
           PY
           python3 unity_cloud_release.py
+
+      - name: Upload Unity workflow logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-cloud-failure-logs
+          path: |
+            logs/**
+            unity_cloud_release.py
+          if-no-files-found: warn
 
       - name: Create GitHub Release
         env:
