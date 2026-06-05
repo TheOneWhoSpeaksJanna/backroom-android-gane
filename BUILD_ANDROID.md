@@ -2,7 +2,7 @@
 
 ## Real app format
 
-This project is now a Godot Android game only.
+This project is a Godot Android game named **Desolation: The Backrooms**.
 
 ```text
 Engine: Godot 4.4.1
@@ -19,7 +19,7 @@ The old native Java/Gradle Android placeholder project was removed because it wa
 Use only this workflow for game APK builds:
 
 ```text
-Build and Release Godot Android APK
+Build and Release Desolation Android APK
 .github/workflows/godot-android-build.yml
 ```
 
@@ -34,9 +34,9 @@ godot/
 Every successful run creates:
 
 ```text
-Builds/BackroomsLevelZero.apk
-Builds/BackroomsLevelZero.apk.7z
-Source/BackroomsLevelZeroProject.zip
+Builds/DesolationTheBackrooms.apk
+Builds/DesolationTheBackrooms.apk.7z
+Source/DesolationTheBackroomsProject.zip
 ```
 
 It uploads those files as workflow artifacts and publishes them to a GitHub Release.
@@ -46,7 +46,7 @@ It uploads those files as workflow artifacts and publishes them to a GitHub Rele
 Go to:
 
 ```text
-Actions -> Build and Release Godot Android APK -> Run workflow
+Actions -> Build and Release Desolation Android APK -> Run workflow
 ```
 
 Or push a change to one of these paths:
@@ -64,11 +64,11 @@ README_GODOT_3D.md
 After the workflow succeeds:
 
 1. Open the completed workflow run.
-2. Download the artifact named `BackroomsLevelZero-build-files`, or
+2. Download the artifact named `DesolationTheBackrooms-build-files`, or
 3. Open the latest GitHub Release and download:
-   - `BackroomsLevelZero.apk`
-   - `BackroomsLevelZero.apk.7z`
-   - `BackroomsLevelZeroProject.zip`
+   - `DesolationTheBackrooms.apk`
+   - `DesolationTheBackrooms.apk.7z`
+   - `DesolationTheBackroomsProject.zip`
 
 ## Safety check
 
