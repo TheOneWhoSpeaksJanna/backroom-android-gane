@@ -1,4 +1,4 @@
-name: Build and Release Godot Android APK
+name: Build and Release Desolation Android APK
 
 on:
   push:
@@ -22,9 +22,9 @@ env:
   GODOT_RELEASE: 4.4.1-stable
   GODOT_BIN: Godot_v4.4.1-stable_linux.x86_64
   ANDROID_HOME: /usr/local/lib/android/sdk
-  APK_NAME: BackroomsLevelZero.apk
-  APK_7Z_NAME: BackroomsLevelZero.apk.7z
-  SOURCE_ZIP_NAME: BackroomsLevelZeroProject.zip
+  APK_NAME: DesolationTheBackrooms.apk
+  APK_7Z_NAME: DesolationTheBackrooms.apk.7z
+  SOURCE_ZIP_NAME: DesolationTheBackroomsProject.zip
 
 jobs:
   build-and-release:
@@ -99,7 +99,7 @@ jobs:
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BackroomsLevelZero-build-files
+          name: DesolationTheBackrooms-build-files
           path: |
             Builds/${{ env.APK_NAME }}
             Builds/${{ env.APK_7Z_NAME }}
@@ -111,5 +111,5 @@ jobs:
         shell: bash
         run: |
           set -eux
-          TAG="godot-apk-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Backrooms Level Zero Android Build ${GITHUB_RUN_NUMBER}" --notes "Full Godot Android APK, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}." --latest
+          TAG="desolation-apk-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Desolation: The Backrooms Android Build ${GITHUB_RUN_NUMBER}" --notes "Full Godot Android APK, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}." --latest
