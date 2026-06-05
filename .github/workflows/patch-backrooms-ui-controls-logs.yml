@@ -1,4 +1,4 @@
-name: Disabled obsolete patch workflow
+name: Disabled - Old backrooms patch
 
 on:
   workflow_dispatch:
@@ -7,4 +7,4 @@ jobs:
   disabled:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "This old patch workflow is disabled. Use normal source commits instead."
+      - run: echo "Disabled. Use Build and Release Godot Android APK instead."
