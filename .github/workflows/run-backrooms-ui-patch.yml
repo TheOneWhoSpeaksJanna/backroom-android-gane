@@ -22,7 +22,8 @@ jobs:
           marker = "python3 - <<'PY'\n"
           start = wf.index(marker) + len(marker)
           end = wf.index("\n          PY", start)
-          code = textwrap.dedent(wf[start:end])
+          raw = wf[start:end]
+          code = textwrap.dedent(raw).lstrip()
           exec(compile(code, "embedded_backrooms_patch.py", "exec"), {})
           PY
       - name: Commit patched game script
