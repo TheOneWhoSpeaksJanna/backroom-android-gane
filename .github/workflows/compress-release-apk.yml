@@ -1,41 +1,10 @@
-name: Compress APK release asset
+name: Disabled old separate APK compressor
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Release tag to compress
-        required: true
-
-permissions:
-  contents: write
 
 jobs:
-  compress-apk:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - name: Download APK and upload ZIP
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "*.apk" --dir release-assets
-          APK="$(find release-assets -maxdepth 1 -type f -name '*.apk' | head -n 1)"
-          if [ -z "$APK" ]; then
-            echo "No APK asset found on release $RELEASE_TAG"
-            exit 1
-          fi
-          ZIP="${APK}.zip"
-          python3 - "$APK" "$ZIP" <<'PY'
-          import sys, zipfile
-          apk=sys.argv[1]
-          out=sys.argv[2]
-          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-              archive.write(apk, apk.split("/")[-1])
-          PY
-          gh release upload "$RELEASE_TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" --clobber
+      - run: echo "Compression is now inside unity-cloud-release.yml"
