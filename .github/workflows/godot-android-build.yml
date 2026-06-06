@@ -1,0 +1,115 @@
+name: Build and Release Desolation Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "godot/**"
+      - "Documentation/**"
+      - "MISSING_FEATURES.md"
+      - "README_GODOT_3D.md"
+      - ".github/workflows/godot-android-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: godot-android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_RELEASE: 4.4.1-stable
+  GODOT_BIN: Godot_v4.4.1-stable_linux.x86_64
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  APK_NAME: DesolationTheBackrooms.apk
+  APK_7Z_NAME: DesolationTheBackrooms.apk.7z
+  SOURCE_ZIP_NAME: DesolationTheBackroomsProject.zip
+
+jobs:
+  build-and-release:
+    name: Build full Godot release APK and release files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install tools and Android SDK packages
+        shell: bash
+        run: |
+          set -eux
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip zip curl
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          mkdir -p "$HOME/.android" "$HOME/.config/godot"
+          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+      - name: Install Godot and export templates
+        shell: bash
+        run: |
+          set -eux
+          curl -L -f --retry 5 -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          curl -L -f --retry 5 -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          unzip -q godot.zip
+          chmod +x "$GODOT_BIN"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          unzip -q templates.tpz -d template
+          cp template/templates/* "$TEMPLATE_DIR/"
+      - name: Configure Godot Android export paths
+        shell: bash
+        run: |
+          set -eux
+          printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' "export/android/android_sdk_path = \"${ANDROID_HOME}\"" "export/android/java_sdk_path = \"${JAVA_HOME}\"" "export/android/debug_keystore = \"${HOME}/.android/debug.keystore\"" 'export/android/debug_keystore_user = "androiddebugkey"' 'export/android/debug_keystore_pass = "android"' > "$HOME/.config/godot/editor_settings-4.tres"
+      - name: Import, export release, compress
+        shell: bash
+        run: |
+          set -eux
+          test -f godot/project.godot
+          test -f godot/Main.tscn
+          test -f godot/Main.gd
+          ./"$GODOT_BIN" --headless --path godot --import --quit
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          rm -rf godot/android
+          mkdir -p godot/android/build
+          unzip -q "$TEMPLATE_DIR/android_source.zip" -d godot/android/build
+          cp "$TEMPLATE_DIR/version.txt" godot/android/.build_version
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > godot/android/build/local.properties
+          rm -rf Builds Source
+          mkdir -p Builds Source
+          ./"$GODOT_BIN" --headless --path godot --export-release "Android Release" "$GITHUB_WORKSPACE/Builds/${APK_NAME}"
+          test -s "Builds/${APK_NAME}"
+          APK_SIZE=$(wc -c < "Builds/${APK_NAME}")
+          echo "APK size: ${APK_SIZE} bytes"
+          if [ "$APK_SIZE" -lt 1000000 ]; then
+            echo "APK is too small; this is not the full Godot game APK."
+            exit 1
+          fi
+          7z a -t7z -mx=9 "Builds/${APK_7Z_NAME}" "Builds/${APK_NAME}"
+          test -s "Builds/${APK_7Z_NAME}"
+          rm -rf godot/android godot/.godot
+          zip -r "Source/${SOURCE_ZIP_NAME}" godot README_GODOT_3D.md Documentation MISSING_FEATURES.md .github/workflows/godot-android-build.yml -x "godot/.godot/*" "godot/android/*"
+          test -s "Source/${SOURCE_ZIP_NAME}"
+          ls -lh "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}"
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DesolationTheBackrooms-build-files
+          path: |
+            Builds/${{ env.APK_NAME }}
+            Builds/${{ env.APK_7Z_NAME }}
+            Source/${{ env.SOURCE_ZIP_NAME }}
+          if-no-files-found: error
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -eux
+          TAG="desolation-apk-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" "Builds/${APK_NAME}" "Builds/${APK_7Z_NAME}" "Source/${SOURCE_ZIP_NAME}" --title "Desolation: The Backrooms Android Build ${GITHUB_RUN_NUMBER}" --notes "Release APK export, compressed APK.7z, and source ZIP built from ${GITHUB_SHA}. Android cannot install .7z directly; extract it first, then install the .apk." --latest

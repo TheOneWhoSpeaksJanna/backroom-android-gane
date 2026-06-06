@@ -1,0 +1,28 @@
+{
+  "project": "Desolation: The Backrooms UI Kit",
+  "assets": [
+    "01_main_menu_clean.png",
+    "02_save_slots_clean.png",
+    "03_settings_clean.png",
+    "04_credits_clean.png",
+    "05_feedback_clean.png",
+    "06_app_icon_1024.png",
+    "06_app_icon_512.png",
+    "06_app_icon_256.png",
+    "06_app_icon_192.png",
+    "06_app_icon_144.png",
+    "06_app_icon_96.png",
+    "06_app_icon_72.png",
+    "06_app_icon_48.png"
+  ],
+  "scripts": [
+    "DesolationMenuController.cs",
+    "DesolationSettingsController.cs",
+    "DesolationFeedbackController.cs"
+  ],
+  "docs": [
+    "README.md",
+    "Docs/UNITY_IMPLEMENTATION_GUIDE.md"
+  ],
+  "notes": "Full-screen UI mockups plus Unity implementation guide and starter scripts."
+}
