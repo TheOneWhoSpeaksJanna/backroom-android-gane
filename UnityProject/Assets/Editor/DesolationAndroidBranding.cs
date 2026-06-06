@@ -25,7 +25,11 @@ public sealed class DesolationAndroidBrandingPrebuild : IPreprocessBuildWithRepo
         PlayerSettings.companyName = "Desolation";
         PlayerSettings.productName = "Desolation: The Backrooms";
         PlayerSettings.bundleVersion = "0.1.0";
-        PlayerSettings.defaultScreenOrientation = UIOrientation.LandscapeLeft;
+        PlayerSettings.defaultScreenOrientation = UIOrientation.AutoRotation;
+        PlayerSettings.allowedAutorotateToPortrait = false;
+        PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+        PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+        PlayerSettings.allowedAutorotateToLandscapeRight = true;
         PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.desolation.thebackrooms");
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
 
