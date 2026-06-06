@@ -4,6 +4,7 @@ using System;
 public sealed class DesolationRuntime:MonoBehaviour{
 enum S{Menu,Saves,Settings,Credits,Feedback,Game}
 S s=S.Menu;Texture2D px,bg,gold,dark,clear,none;GUIStyle title,sub,lab,btn,ghost,field,center;float master=.9f,music=.75f,sfx=.85f,bright=.9f,sens=1f;int gfx=2,issue;string fb="",mail="",toast="",gameMsg="";float toastUntil;readonly string[] issues={"BUG","BALANCE","PERFORMANCE","IDEA","OTHER"};
+<<<<<<< HEAD
 void Start(){
     Application.targetFrameRate=60;
     Screen.orientation=ScreenOrientation.LandscapeLeft;
@@ -14,6 +15,9 @@ void Start(){
         s = S.Game;
     }
 }
+=======
+void Start(){Application.targetFrameRate=60;Screen.orientation=ScreenOrientation.LandscapeLeft;Load();Tex();Styles();MakeBg();Apply();}
+>>>>>>> f8040f4204ffc9036c4dc7d9ff4b4a812cf323e0
 void Update(){if(Input.GetKeyDown(KeyCode.Escape)||Input.GetKeyDown(KeyCode.Backspace))Back();}
 void OnGUI(){if(px==null){Tex();Styles();MakeBg();}GUI.DrawTexture(R(0,0,1,1),bg,ScaleMode.StretchToFill);Decor();TintByScreen();if(bright<.98f){GUI.color=new Color(0,0,0,(1f-bright)*.45f);GUI.DrawTexture(R(0,0,1,1),px);GUI.color=Color.white;}switch(s){case S.Menu:Menu();break;case S.Saves:Saves();break;case S.Settings:Settings();break;case S.Credits:Credits();break;case S.Feedback:Feedback();break;default:Game();break;}Toast();}
 void Menu(){Brand("");B(.365f,.355f,.27f,.074f,"PLAY",()=>s=S.Saves);B(.365f,.465f,.27f,.074f,"SETTINGS",()=>s=S.Settings);B(.365f,.575f,.27f,.074f,"CREDITS",()=>s=S.Credits);B(.365f,.685f,.27f,.074f,"FEEDBACK",()=>s=S.Feedback);}
@@ -34,6 +38,7 @@ void Toast(){if(Time.realtimeSinceStartup>toastUntil||toast=="")return;Rect r=R(
 
 void Decor(){GUI.color=new Color(0,0,0,.35f);GUI.DrawTexture(R(0,.73f,1,.27f),px);GUI.color=new Color(1,.78f,.18f,.16f);for(int i=0;i<8;i++){float x=.07f+i*.13f;GUI.DrawTexture(R(x,.12f,.045f,.72f),px);GUI.DrawTexture(R(x-.006f,.12f,.057f,.01f),gold);}GUI.color=new Color(1,.84f,.28f,.5f);for(int i=0;i<3;i++){float x=.23f+i*.25f;GUI.DrawTexture(R(x,.10f,.12f,.012f),gold);GUI.color=new Color(1,.75f,.18f,.08f);GUI.DrawTexture(R(x-.03f,.09f,.18f,.05f),px);GUI.color=new Color(1,.84f,.28f,.5f);}GUI.color=Color.white;GUI.Label(R(.04f,.29f,.12f,.06f),"DON'T\nLOOK BACK",lab);}
 void TintByScreen(){if(s==S.Saves||s==S.Feedback){GUI.color=new Color(.15f,.08f,0,.12f);GUI.DrawTexture(R(0,0,1,1),px);GUI.color=Color.white;}}
+<<<<<<< HEAD
 void Play(int slot){
     PlayerPrefs.SetInt("SelectedSaveSlot",slot);
     PlayerPrefs.SetInt("SaveSlot"+slot+"_Exists",1);
@@ -41,6 +46,9 @@ void Play(int slot){
     gameMsg="SAVE "+slot+" SELECTED - LEVEL 0 READY";
     s=S.Game;
 }
+=======
+void Play(int slot){PlayerPrefs.SetInt("SelectedSaveSlot",slot);PlayerPrefs.SetInt("SaveSlot"+slot+"_Exists",1);PlayerPrefs.Save();gameMsg="SAVE "+slot+" SELECTED - LEVEL 0 READY";s=S.Game;}
+>>>>>>> f8040f4204ffc9036c4dc7d9ff4b4a812cf323e0
 void Send(){if(string.IsNullOrWhiteSpace(fb)){toast="WRITE FEEDBACK FIRST";toastUntil=Time.realtimeSinceStartup+2;return;}PlayerPrefs.SetString("LastFeedbackMessage",fb.Trim());PlayerPrefs.SetString("LastFeedbackEmail",mail.Trim());PlayerPrefs.SetString("LastFeedbackIssueType",issues[issue]);PlayerPrefs.Save();fb="";toast="FEEDBACK SAVED LOCALLY";toastUntil=Time.realtimeSinceStartup+2.4f;}
 void Back(){if(s==S.Settings)Save();if(s!=S.Menu){s=S.Menu;toast="";}}
 void Load(){master=PlayerPrefs.GetFloat("MasterVolume",.9f);music=PlayerPrefs.GetFloat("MusicVolume",.75f);sfx=PlayerPrefs.GetFloat("SfxVolume",.85f);bright=PlayerPrefs.GetFloat("Brightness",.9f);sens=PlayerPrefs.GetFloat("Sensitivity",1);gfx=Mathf.Clamp(PlayerPrefs.GetInt("GraphicsQuality",2),0,2);}
