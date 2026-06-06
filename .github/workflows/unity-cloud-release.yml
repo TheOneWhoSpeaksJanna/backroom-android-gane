@@ -22,7 +22,7 @@ jobs:
   unity-cloud-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Unity Cloud build and download APK
+      - name: Trigger Unity Cloud build, download APK, and compress ZIP
         env:
           UNITY_BUILD_API_KEY: ${{ secrets.UNITY_BUILD_API_KEY }}
           UNITY_ARTIFACT_API_KEY: ${{ secrets.UNITY_ARTIFACT_API_KEY }}
@@ -46,23 +46,13 @@ jobs:
           headers = {"Authorization": "Basic " + key, "Content-Type": "application/json"}
 
           def save(name, data):
-              path = Path("logs") / name
+              p = Path("logs") / name
               if isinstance(data, (dict, list)):
                   data = json.dumps(data, indent=2)
               if isinstance(data, bytes):
-                  path.write_bytes(data)
+                  p.write_bytes(data)
               else:
-                  path.write_text(str(data), encoding="utf-8")
-
-          def redirect_url(err):
-              location = err.headers.get("Location") or ""
-              if location:
-                  return location.strip().strip('"')
-              reason = str(getattr(err, "reason", "") or "").strip().strip('"')
-              if reason.startswith("http"):
-                  return reason
-              body = err.read().decode("utf-8", "ignore").strip().strip('"')
-              return body if body.startswith("http") else ""
+                  p.write_text(str(data), encoding="utf-8")
 
           def req(method, url, data=None, raw=False, optional=False):
               body = json.dumps(data).encode() if data is not None else None
@@ -81,17 +71,17 @@ jobs:
                           return text
               except urllib.error.HTTPError as err:
                   if err.code in (301, 302, 303, 307, 308):
-                      url2 = redirect_url(err)
-                      if url2:
-                          return urllib.request.urlopen(url2, timeout=180).read() if raw else url2
-                  if optional:
-                      save("optional_errors.txt", f"{method} {url}\nHTTP {err.code}\n")
-                      return None
+                      location = (err.headers.get("Location") or err.read().decode("utf-8", "ignore")).strip().strip('"')
+                      if location.startswith("http"):
+                          return urllib.request.urlopen(location, timeout=180).read() if raw else location
                   text = err.read().decode("utf-8", "ignore")
+                  if optional:
+                      save("optional_error_%03d.txt" % len(list(Path("logs").glob("optional_error_*"))), f"{method} {url}\nHTTP {err.code}\n{text}")
+                      return None
                   raise SystemExit(f"{method} {url} failed: HTTP {err.code} {text}")
               except Exception as exc:
                   if optional:
-                      save("optional_errors.txt", f"{method} {url}\n{exc}\n")
+                      save("optional_error_%03d.txt" % len(list(Path("logs").glob("optional_error_*"))), f"{method} {url}\n{exc}")
                       return None
                   raise
 
@@ -99,28 +89,28 @@ jobs:
               if isinstance(value, list):
                   return value
               if isinstance(value, dict):
-                  for key_name in ("results", "projects", "buildtargets", "buildTargets", "builds", "items", "data"):
-                      if isinstance(value.get(key_name), list):
-                          return value[key_name]
+                  for k in ("results", "projects", "buildtargets", "buildTargets", "builds", "items", "data"):
+                      if isinstance(value.get(k), list):
+                          return value[k]
               return []
 
           def pick(data, keys):
               if not isinstance(data, dict):
                   return ""
-              for key_name in keys:
-                  value = data.get(key_name)
-                  if value not in (None, ""):
-                      return str(value)
+              for k in keys:
+                  v = data.get(k)
+                  if v not in (None, ""):
+                      return str(v)
               return ""
 
           def walk(data):
               if isinstance(data, dict):
-                  for key_name, value in data.items():
-                      yield key_name, value
-                      yield from walk(value)
+                  for k, v in data.items():
+                      yield k, v
+                      yield from walk(v)
               elif isinstance(data, list):
-                  for value in data:
-                      yield from walk(value)
+                  for v in data:
+                      yield from walk(v)
 
           projects = req("GET", base + "/projects")
           save("projects.json", projects)
@@ -140,7 +130,6 @@ jobs:
               target = next((t for t in items(targets) if "android" in json.dumps(t).lower()), None)
           if not target:
               raise SystemExit("Android build target not found. See logs/buildtargets.json.")
-
           target_id = pick(target, ["buildtargetid", "buildTargetId", "buildtargetId", "id", "name", "buildTargetName"])
           print("Unity target", target_id)
 
@@ -158,13 +147,12 @@ jobs:
 
           if not build_number:
               raise SystemExit("Build started but no build number was found.")
-
           print("Build number", build_number)
           Path("logs/build_number.txt").write_text(build_number, encoding="utf-8")
           status_url = f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds/{build_number}"
 
           final = None
-          for attempt in range(90):
+          for attempt in range(120):
               detail = req("GET", status_url)
               save("latest_build_detail.json", detail)
               status = pick(detail, ["buildStatus", "status", "state", "result", "lifecycle"]).lower()
@@ -193,11 +181,11 @@ jobs:
               if name and name not in candidates:
                   candidates.append(name)
 
-          for key_name, value in walk(final):
-              if isinstance(value, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", value):
-                  add_candidate(value)
-              if isinstance(value, str) and "filename" in key_name.lower():
-                  add_candidate(value)
+          for k, v in walk(final):
+              if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v):
+                  add_candidate(v)
+              if isinstance(v, str) and "filename" in k.lower():
+                  add_candidate(v)
 
           def download_url(filename):
               safe = urllib.parse.quote(filename, safe="/")
@@ -212,9 +200,9 @@ jobs:
                   data = urllib.request.urlopen(files_url, timeout=180).read()
                   save("files.json", data)
                   parsed = json.loads(data.decode("utf-8", "ignore"))
-                  for key_name, value in walk(parsed):
-                      if isinstance(value, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", value):
-                          add_candidate(value)
+                  for k, v in walk(parsed):
+                      if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v):
+                          add_candidate(v)
               except Exception as exc:
                   save("files_json_error.txt", str(exc))
 
@@ -232,7 +220,7 @@ jobs:
               try:
                   urllib.request.urlretrieve(url, temporary)
               except Exception as exc:
-                  save("download_error_" + str(len(list(Path("logs").glob("download_error_*")))) + ".txt", f"{filename}\n{exc}")
+                  save("download_error_%03d.txt" % len(list(Path("logs").glob("download_error_*"))), f"{filename}\n{exc}")
                   continue
               if temporary.exists() and temporary.stat().st_size > 1024 * 1024:
                   if temporary.suffix.lower() == ".zip":
@@ -256,7 +244,14 @@ jobs:
           with zipfile.ZipFile(compressed, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
               archive.write(output, output.name)
 
-          Path("unity_build_meta.json").write_text(json.dumps({"org": org, "project": project_id, "target": target_id, "build": build_number, "apk_size": output.stat().st_size, "zip_size": compressed.stat().st_size}, indent=2), encoding="utf-8")
+          Path("unity_build_meta.json").write_text(json.dumps({
+              "org": org,
+              "project": project_id,
+              "target": target_id,
+              "build": build_number,
+              "apk_size": output.stat().st_size,
+              "zip_size": compressed.stat().st_size
+          }, indent=2), encoding="utf-8")
           print("Downloaded", output, output.stat().st_size)
           print("Compressed", compressed, compressed.stat().st_size)
           PY
@@ -279,4 +274,4 @@ jobs:
         run: |
           set -eux
           TAG="unity-cloud-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" dist/DesolationTheBackrooms-Unity.apk dist/DesolationTheBackrooms-Unity.apk.zip unity_build_meta.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Desolation: The Backrooms Unity Cloud Build ${GITHUB_RUN_NUMBER}" --notes "Unity Cloud Build APK automatically triggered from GitHub Actions. The APK is included directly and also as a compressed .zip." --latest
+          gh release create "$TAG" dist/DesolationTheBackrooms-Unity.apk dist/DesolationTheBackrooms-Unity.apk.zip unity_build_meta.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Desolation: The Backrooms Unity Cloud Build ${GITHUB_RUN_NUMBER}" --notes "Unity Cloud Build APK automatically triggered from GitHub Actions. The release includes the raw APK and a compressed APK ZIP." --latest
