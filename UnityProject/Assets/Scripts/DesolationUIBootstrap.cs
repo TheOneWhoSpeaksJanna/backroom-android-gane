@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
@@ -188,7 +189,7 @@ public class DesolationUIBootstrap : MonoBehaviour
             tmp.text = labels[i];
             tmp.fontSize = 28;
             tmp.color = new Color(0.85f, 0.75f, 0.35f, 1); // gold
-            tmp.alignment = TextAlignmentOptions.MiddleLeft;
+            tmp.alignment = TextAlignmentOptions.Left;
 
             // Slider
             GameObject slider = new GameObject(labels[i] + "Slider");
@@ -301,7 +302,7 @@ public class DesolationUIBootstrap : MonoBehaviour
         itmp.text = "Issue Type";
         itmp.fontSize = 28;
         itmp.color = new Color(0.85f, 0.75f, 0.35f, 1);
-        itmp.alignment = TextAlignmentOptions.MiddleLeft;
+        itmp.alignment = TextAlignmentOptions.Left;
 
         // Issue type dropdown
         GameObject dropdown = new GameObject("IssueDropdown");
@@ -327,18 +328,39 @@ public class DesolationUIBootstrap : MonoBehaviour
         RectTransform frt = inputObj.AddComponent<RectTransform>();
         frt.anchoredPosition = new Vector2(0, 40);
         frt.sizeDelta = new Vector2(600, 160);
-        TMP_InputField input = inputObj.AddComponent<TMP_InputField>();
-        input.textComponent = inputObj.AddComponent<TextMeshProUGUI>();
-        input.textComponent.fontSize = 24;
-        input.textComponent.color = Color.white;
-        input.placeholder = inputObj.AddComponent<TextMeshProUGUI>();
-        input.placeholder.text = "Describe your feedback here...";
-        input.placeholder.fontSize = 24;
-        input.placeholder.color = new Color(0.5f, 0.5f, 0.5f, 1);
-        input.lineType = TMP_InputField.LineType.MultiLineNewline;
         Image inputImg = inputObj.AddComponent<Image>();
         inputImg.color = new Color(0.1f, 0.08f, 0.02f, 1);
+        TMP_InputField input = inputObj.AddComponent<TMP_InputField>();
         input.targetGraphic = inputImg;
+        input.lineType = TMP_InputField.LineType.MultiLineNewline;
+
+        // Text area child (TMP_InputField requires a child TMP_Text for rendering)
+        GameObject inputTextChild = new GameObject("Text");
+        inputTextChild.transform.SetParent(inputObj.transform, false);
+        RectTransform itcRect = inputTextChild.AddComponent<RectTransform>();
+        itcRect.anchorMin = new Vector2(0, 0);
+        itcRect.anchorMax = new Vector2(1, 1);
+        itcRect.offsetMin = new Vector2(10, 5);
+        itcRect.offsetMax = new Vector2(-10, -5);
+        TextMeshProUGUI inputText = inputTextChild.AddComponent<TextMeshProUGUI>();
+        inputText.fontSize = 24;
+        inputText.color = Color.white;
+        input.textComponent = inputText;
+
+        // Placeholder child
+        GameObject inputPhChild = new GameObject("Placeholder");
+        inputPhChild.transform.SetParent(inputObj.transform, false);
+        RectTransform ipcRect = inputPhChild.AddComponent<RectTransform>();
+        ipcRect.anchorMin = new Vector2(0, 0);
+        ipcRect.anchorMax = new Vector2(1, 1);
+        ipcRect.offsetMin = new Vector2(10, 5);
+        ipcRect.offsetMax = new Vector2(-10, -5);
+        TextMeshProUGUI inputPh = inputPhChild.AddComponent<TextMeshProUGUI>();
+        inputPh.text = "Describe your feedback here...";
+        inputPh.fontSize = 24;
+        inputPh.color = new Color(0.5f, 0.5f, 0.5f, 1);
+        inputPh.enableWordWrapping = true;
+        input.placeholder = inputPh;
 
         // Email input
         GameObject emailObj = new GameObject("EmailInput");
@@ -346,17 +368,37 @@ public class DesolationUIBootstrap : MonoBehaviour
         RectTransform ert = emailObj.AddComponent<RectTransform>();
         ert.anchoredPosition = new Vector2(0, -90);
         ert.sizeDelta = new Vector2(600, 50);
-        TMP_InputField email = emailObj.AddComponent<TMP_InputField>();
-        email.textComponent = emailObj.AddComponent<TextMeshProUGUI>();
-        email.textComponent.fontSize = 24;
-        email.textComponent.color = Color.white;
-        email.placeholder = emailObj.AddComponent<TextMeshProUGUI>();
-        email.placeholder.text = "Email (optional)";
-        email.placeholder.fontSize = 24;
-        email.placeholder.color = new Color(0.5f, 0.5f, 0.5f, 1);
         Image emailImg = emailObj.AddComponent<Image>();
         emailImg.color = new Color(0.1f, 0.08f, 0.02f, 1);
+        TMP_InputField email = emailObj.AddComponent<TMP_InputField>();
         email.targetGraphic = emailImg;
+
+        // Text area child
+        GameObject emailTextChild = new GameObject("Text");
+        emailTextChild.transform.SetParent(emailObj.transform, false);
+        RectTransform etcRect = emailTextChild.AddComponent<RectTransform>();
+        etcRect.anchorMin = new Vector2(0, 0);
+        etcRect.anchorMax = new Vector2(1, 1);
+        etcRect.offsetMin = new Vector2(10, 5);
+        etcRect.offsetMax = new Vector2(-10, -5);
+        TextMeshProUGUI emailText = emailTextChild.AddComponent<TextMeshProUGUI>();
+        emailText.fontSize = 24;
+        emailText.color = Color.white;
+        email.textComponent = emailText;
+
+        // Placeholder child
+        GameObject emailPhChild = new GameObject("Placeholder");
+        emailPhChild.transform.SetParent(emailObj.transform, false);
+        RectTransform epcRect = emailPhChild.AddComponent<RectTransform>();
+        epcRect.anchorMin = new Vector2(0, 0);
+        epcRect.anchorMax = new Vector2(1, 1);
+        epcRect.offsetMin = new Vector2(10, 5);
+        epcRect.offsetMax = new Vector2(-10, -5);
+        TextMeshProUGUI emailPh = emailPhChild.AddComponent<TextMeshProUGUI>();
+        emailPh.text = "Email (optional)";
+        emailPh.fontSize = 24;
+        emailPh.color = new Color(0.5f, 0.5f, 0.5f, 1);
+        email.placeholder = emailPh;
 
         // Send button
         GameObject sendBtn = new GameObject("SendButton");
@@ -409,7 +451,7 @@ public class DesolationUIBootstrap : MonoBehaviour
     // ════════════════════════════════════════════
     void BuildEventSystem()
     {
-        if (FindObjectOfType<EventSystem>() != null) return;
+        if (FindFirstObjectByType<EventSystem>() != null) return;
         GameObject es = new GameObject("EventSystem");
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
