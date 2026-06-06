@@ -32,95 +32,125 @@ jobs:
           set -euo pipefail
           mkdir -p logs dist
           cat > unity_cloud_release.py <<'PY'
-          import json, os, re, shutil, time, urllib.error, urllib.parse, urllib.request, zipfile
+          import json
+          import os
+          import re
+          import shutil
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import zipfile
           from pathlib import Path
 
-          def clean(v):
-              return "".join((v or "").split())
+          def clean(value):
+              return "".join((value or "").split())
+
+          def save(name, data):
+              path = Path("logs") / name
+              if isinstance(data, (dict, list)):
+                  data = json.dumps(data, indent=2)
+              if isinstance(data, bytes):
+                  path.write_bytes(data)
+              else:
+                  path.write_text(str(data), encoding="utf-8")
 
           key = clean(os.getenv("UNITY_BUILD_API_KEY")) or clean(os.getenv("UNITY_ARTIFACT_API_KEY")) or clean(os.getenv("UNITY_BUILD"))
           if not key:
+              save("fatal_error.txt", "Missing Unity API key secret.")
               raise SystemExit("Missing Unity API key secret.")
 
           base = os.environ["UNITY_BUILD_API_BASE"].rstrip("/")
           headers = {"Authorization": "Basic " + key, "Content-Type": "application/json"}
+          retry_codes = {408, 409, 425, 429, 500, 502, 503, 504}
 
-          def save(name, data):
-              p = Path("logs") / name
-              if isinstance(data, (dict, list)):
-                  data = json.dumps(data, indent=2)
-              if isinstance(data, bytes):
-                  p.write_bytes(data)
-              else:
-                  p.write_text(str(data), encoding="utf-8")
-
-          def req(method, url, data=None, raw=False, optional=False):
-              body = json.dumps(data).encode() if data is not None else None
+          def parse_payload(payload, raw):
+              if raw:
+                  return payload
+              text = payload.decode("utf-8", "ignore")
+              if not text.strip():
+                  return {}
               try:
-                  request = urllib.request.Request(url, data=body, headers=headers, method=method)
-                  with urllib.request.urlopen(request, timeout=180) as response:
-                      payload = response.read()
-                      if raw:
-                          return payload
+                  return json.loads(text)
+              except Exception:
+                  return text
+
+          def req(method, url, data=None, raw=False, optional=False, retries=8):
+              body = json.dumps(data).encode() if data is not None else None
+              last_error = ""
+              for attempt in range(1, retries + 1):
+                  try:
+                      request = urllib.request.Request(url, data=body, headers=headers, method=method)
+                      with urllib.request.urlopen(request, timeout=180) as response:
+                          return parse_payload(response.read(), raw)
+                  except urllib.error.HTTPError as err:
+                      payload = err.read()
                       text = payload.decode("utf-8", "ignore")
-                      if not text.strip():
-                          return {}
-                      try:
-                          return json.loads(text)
-                      except Exception:
-                          return text
-              except urllib.error.HTTPError as err:
-                  if err.code in (301, 302, 303, 307, 308):
-                      location = (err.headers.get("Location") or err.read().decode("utf-8", "ignore")).strip().strip('"')
-                      if location.startswith("http"):
-                          return urllib.request.urlopen(location, timeout=180).read() if raw else location
-                  text = err.read().decode("utf-8", "ignore")
-                  if optional:
-                      save("optional_error_%03d.txt" % len(list(Path("logs").glob("optional_error_*"))), f"{method} {url}\nHTTP {err.code}\n{text}")
-                      return None
-                  raise SystemExit(f"{method} {url} failed: HTTP {err.code} {text}")
-              except Exception as exc:
-                  if optional:
-                      save("optional_error_%03d.txt" % len(list(Path("logs").glob("optional_error_*"))), f"{method} {url}\n{exc}")
-                      return None
-                  raise
+                      if err.code in (301, 302, 303, 307, 308):
+                          location = (err.headers.get("Location") or text).strip().strip('"')
+                          if location.startswith("http"):
+                              try:
+                                  return urllib.request.urlopen(location, timeout=180).read() if raw else location
+                              except Exception as redirect_error:
+                                  last_error = f"redirect {location}\n{redirect_error}"
+                      else:
+                          last_error = f"{method} {url}\nHTTP {err.code}\n{text}"
+                          save(f"api_error_attempt_{attempt:03d}.txt", last_error)
+                          if err.code not in retry_codes:
+                              break
+                  except Exception as exc:
+                      last_error = f"{method} {url}\n{type(exc).__name__}: {exc}"
+                      save(f"api_error_attempt_{attempt:03d}.txt", last_error)
+
+                  if attempt < retries:
+                      delay = min(20 + attempt * 15, 120)
+                      print(f"Unity API request failed on attempt {attempt}/{retries}; retrying in {delay}s")
+                      time.sleep(delay)
+
+              if optional:
+                  save(f"optional_error_{len(list(Path('logs').glob('optional_error_*'))):03d}.txt", last_error)
+                  return None
+              save("fatal_api_error.txt", last_error)
+              raise SystemExit(last_error)
 
           def items(value):
               if isinstance(value, list):
                   return value
               if isinstance(value, dict):
-                  for k in ("results", "projects", "buildtargets", "buildTargets", "builds", "items", "data"):
-                      if isinstance(value.get(k), list):
-                          return value[k]
+                  for key_name in ("results", "projects", "buildtargets", "buildTargets", "builds", "items", "data"):
+                      if isinstance(value.get(key_name), list):
+                          return value[key_name]
               return []
 
           def pick(data, keys):
               if not isinstance(data, dict):
                   return ""
-              for k in keys:
-                  v = data.get(k)
-                  if v not in (None, ""):
-                      return str(v)
+              for key_name in keys:
+                  value = data.get(key_name)
+                  if value not in (None, ""):
+                      return str(value)
               return ""
 
           def walk(data):
               if isinstance(data, dict):
-                  for k, v in data.items():
-                      yield k, v
-                      yield from walk(v)
+                  for key_name, value in data.items():
+                      yield key_name, value
+                      yield from walk(value)
               elif isinstance(data, list):
-                  for v in data:
-                      yield from walk(v)
+                  for value in data:
+                      yield from walk(value)
 
           projects = req("GET", base + "/projects")
           save("projects.json", projects)
           project = next((p for p in items(projects) if str(p.get("name", p.get("projectName", ""))) == os.environ["UNITY_PROJECT_NAME"]), None)
           if not project:
+              save("fatal_error.txt", "Unity project not found. See projects.json.")
               raise SystemExit("Unity project not found. See logs/projects.json.")
 
           org = pick(project, ["orgid", "orgId", "org_id", "organizationId", "organizationid"])
           project_id = pick(project, ["projectid", "projectId", "project_id", "id", "guid"])
           if not org or not project_id:
+              save("fatal_error.txt", "Could not detect Unity organization/project ID.")
               raise SystemExit("Could not detect Unity organization/project ID.")
 
           targets = req("GET", f"{base}/orgs/{org}/projects/{project_id}/buildtargets")
@@ -129,27 +159,33 @@ jobs:
           if not target:
               target = next((t for t in items(targets) if "android" in json.dumps(t).lower()), None)
           if not target:
+              save("fatal_error.txt", "Android build target not found.")
               raise SystemExit("Android build target not found. See logs/buildtargets.json.")
+
           target_id = pick(target, ["buildtargetid", "buildTargetId", "buildtargetId", "id", "name", "buildTargetName"])
           print("Unity target", target_id)
 
-          build = req("POST", f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds", {})
+          build_url = f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds"
+          build = req("POST", build_url, {})
           save("trigger_response.json", build)
           build_number = pick(build, ["number", "build", "buildNumber", "build_number", "buildnumber"])
+
           for _ in range(12):
               if build_number:
                   break
               time.sleep(10)
-              builds = req("GET", f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds")
+              builds = req("GET", build_url)
               save("latest_builds.json", builds)
               if items(builds):
                   build_number = pick(items(builds)[0], ["number", "build", "buildNumber", "build_number", "buildnumber"])
 
           if not build_number:
+              save("fatal_error.txt", "Build started but no build number was found.")
               raise SystemExit("Build started but no build number was found.")
+
           print("Build number", build_number)
           Path("logs/build_number.txt").write_text(build_number, encoding="utf-8")
-          status_url = f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds/{build_number}"
+          status_url = f"{build_url}/{build_number}"
 
           final = None
           for attempt in range(120):
@@ -157,23 +193,25 @@ jobs:
               save("latest_build_detail.json", detail)
               status = pick(detail, ["buildStatus", "status", "state", "result", "lifecycle"]).lower()
               print("Attempt", attempt + 1, "status", status)
-              if any(x in status for x in ("success", "finished", "finishedsuccess", "succeeded")):
+              if any(word in status for word in ("success", "finished", "finishedsuccess", "succeeded")):
                   final = detail
                   break
-              if any(x in status for x in ("fail", "error", "cancel", "cancelled")):
+              if any(word in status for word in ("fail", "error", "cancel", "cancelled")):
                   save("failed_build_detail.json", detail)
                   for suffix in ("log", "logs", "download/build.log", "download/Unity.log", "download/Editor.log", "download/logs.zip"):
-                      data = req("GET", status_url + "/" + suffix, raw=True, optional=True)
+                      data = req("GET", status_url + "/" + suffix, raw=True, optional=True, retries=3)
                       if data:
                           save("unity_" + suffix.replace("/", "_"), data)
                   raise SystemExit("Unity Cloud build failed. Logs saved.")
               time.sleep(20)
 
           if not final:
+              save("fatal_error.txt", "Unity Cloud build timed out.")
               raise SystemExit("Unity Cloud build timed out.")
-          save("successful_build_detail.json", final)
 
+          save("successful_build_detail.json", final)
           candidates = []
+
           def add_candidate(name):
               if not name:
                   return
@@ -181,15 +219,15 @@ jobs:
               if name and name not in candidates:
                   candidates.append(name)
 
-          for k, v in walk(final):
-              if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v):
-                  add_candidate(v)
-              if isinstance(v, str) and "filename" in k.lower():
-                  add_candidate(v)
+          for key_name, value in walk(final):
+              if isinstance(value, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", value):
+                  add_candidate(value)
+              if isinstance(value, str) and "filename" in key_name.lower():
+                  add_candidate(value)
 
           def download_url(filename):
               safe = urllib.parse.quote(filename, safe="/")
-              result = req("GET", f"{status_url}/download/{safe}", optional=True)
+              result = req("GET", f"{status_url}/download/{safe}", optional=True, retries=4)
               if isinstance(result, str) and result.startswith("http"):
                   return result
               return pick(result, ["url", "downloadUrl", "href", "link", "location"]) if result else ""
@@ -200,9 +238,9 @@ jobs:
                   data = urllib.request.urlopen(files_url, timeout=180).read()
                   save("files.json", data)
                   parsed = json.loads(data.decode("utf-8", "ignore"))
-                  for k, v in walk(parsed):
-                      if isinstance(v, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", v):
-                          add_candidate(v)
+                  for key_name, value in walk(parsed):
+                      if isinstance(value, str) and re.search(r"\.(apk|aab|zip)(\?|$|\s)", value):
+                          add_candidate(value)
               except Exception as exc:
                   save("files_json_error.txt", str(exc))
 
@@ -220,8 +258,9 @@ jobs:
               try:
                   urllib.request.urlretrieve(url, temporary)
               except Exception as exc:
-                  save("download_error_%03d.txt" % len(list(Path("logs").glob("download_error_*"))), f"{filename}\n{exc}")
+                  save(f"download_error_{len(list(Path('logs').glob('download_error_*'))):03d}.txt", f"{filename}\n{exc}")
                   continue
+
               if temporary.exists() and temporary.stat().st_size > 1024 * 1024:
                   if temporary.suffix.lower() == ".zip":
                       with zipfile.ZipFile(temporary) as archive:
@@ -235,9 +274,10 @@ jobs:
                       break
 
           if not output.exists() or output.stat().st_size <= 1024 * 1024:
-              share = req("POST", status_url + "/share", {}, optional=True)
+              share = req("POST", status_url + "/share", {}, optional=True, retries=4)
               if share:
                   save("share_response.json", share)
+              save("fatal_error.txt", "Build succeeded but APK artifact download failed.")
               raise SystemExit("Build succeeded but APK artifact download failed. Logs saved.")
 
           compressed = Path("dist") / (os.environ["RELEASE_APK_NAME"] + ".zip")
