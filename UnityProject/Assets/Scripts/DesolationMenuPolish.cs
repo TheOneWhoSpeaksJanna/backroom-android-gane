@@ -32,8 +32,12 @@ public sealed class DesolationMenuPolish : MonoBehaviour
         px.SetPixel(0, 0, Color.white);
         px.Apply();
         hit = new GUIStyle(GUI.skin.button);
-        hit.normal.background = hit.hover.background = hit.active.background = null;
-        hit.normal.textColor = hit.hover.textColor = hit.active.textColor = Color.clear;
+        hit.normal.background = null;
+        hit.hover.background = null;
+        hit.active.background = null;
+        hit.normal.textColor = Color.clear;
+        hit.hover.textColor = Color.clear;
+        hit.active.textColor = Color.clear;
     }
 
     bool Link()
@@ -68,8 +72,14 @@ public sealed class DesolationMenuPolish : MonoBehaviour
 
     string Spread(string s)
     {
-        if (s.Length > 18) return s;
-        return string.Join(" ", s.ToCharArray());
+        if (string.IsNullOrEmpty(s) || s.Length > 18) return s;
+        string spaced = "";
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (i > 0) spaced += " ";
+            spaced += s[i];
+        }
+        return spaced;
     }
 
     void Label(Rect r, string text, int size, TextAnchor align)
