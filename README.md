@@ -1,197 +1,179 @@
 # Desolation: The Backrooms
 
-**Desolation: The Backrooms** is an Android Backrooms horror game focused on a playable Level 0 experience: yellow corridors, damp carpet, fluorescent lights, unsettling audio, simple survival pressure, and a mobile-friendly UI.
+**Desolation: The Backrooms** is an Android Backrooms horror game. The active project is now the Unity project in `UnityProject/`. The older Godot folder is kept as a legacy prototype and as an asset/texture archive.
 
-The active development path is now **Unity**. The older **Godot** prototype and texture archive are still kept in the repository as reference/legacy material, but the Unity project is the main build target.
+## Current format
 
-## Current project state
+- Engine: Unity
+- Language: C#
+- Target: Android
+- App name: Desolation: The Backrooms
+- Main Unity project: `UnityProject/`
+- Legacy reference project: `godot/`
 
-The repository currently contains:
+## Current gameplay state
 
-- `UnityProject/` — the active Unity Android project.
-- `UnityProject/Assets/Scripts/FirstPlayableBatch.cs` — current playable gameplay batch.
-- `UnityProject/Assets/Scripts/DesolationRuntime.cs` — earlier Unity menu/runtime prototype kept for reference while the Unity migration continues.
-- `UnityProject/Assets/Scripts/MissingFeaturesTab.cs` — in-game status/checklist tab.
-- `godot/` — legacy Godot prototype, generated materials, and uploaded texture archive.
-- `Documentation/` — build notes, migration notes, UI prompts, texture inventory, and APK download help.
-- `.github/workflows/unity-cloud-release.yml` — Unity Cloud Build trigger, APK downloader, and GitHub Release publisher.
-- `.github/workflows/godot-android-build.yml` — legacy Godot Android build workflow.
+The current Unity build has a playable Level 0 prototype with:
 
-## Active engine and format
-
-The game is currently being migrated and developed as:
-
-- Engine: **Unity**
-- Main language: **C#**
-- Target platform: **Android**
-- Orientation: **Landscape**
-- App name: **Desolation: The Backrooms**
-- Android package: `com.desolation.thebackrooms`
-- Current version: `0.1.0`
-
-The old Godot/GDScript files are still present for reference, but the active direction is Unity/C#.
-
-## Current gameplay
-
-The latest gameplay batch includes:
-
+- Main menu, status screen, settings, pause, save, and load.
 - First-person movement.
-- Touch-friendly mobile buttons.
-- Keyboard support for testing.
-- A generated Level 0-style environment with corridors, walls, pillars, floor, lights, fuses, breaker, exit, lockers, and an entity.
-- Objective loop: collect fuses, find the key, power the breaker, and escape.
-- Basic enemy pressure.
+- Health, sanity, and stamina.
+- Mobile-style USE, SPRINT, HIDE, and DECOY buttons.
+- Level 0 maze geometry with lights, pillars, partitions, carpet, wallpaper, ceiling, and metal props.
+- Objective chain: collect fuses, find keys, activate switches, power the breaker, and escape.
+- Notes and a truth-door ending route.
 - Locker hiding.
-- Health, sanity, and stamina HUD.
-- Pause/resume/main menu flow.
-- Multiple save slots and settings are in progress from the earlier Unity runtime work.
-- Status/missing-features screen for tracking what is complete and what still needs work.
+- Enemy pressure and chase behavior.
+- Decoy distraction.
+- Android back button handling.
+- Unity texture bridge that uses the texture archive from the old Godot folders.
 
-## Controls
+## Texture bridge
 
-Keyboard test controls:
+You do not need to manually move the uploaded Godot textures.
 
-```text
-WASD / Arrow keys = move
-Mouse = look
-Left Shift = sprint
-E = use nearby object
-C / Left Ctrl = hide near locker
-Esc / Back = pause or go back
-```
-
-Mobile controls:
+The Unity editor/build bridge copies textures from:
 
 ```text
-Left side = movement area
-Right side = look area
-USE = interact with nearby object
-SPRINT = sprint while moving
-HIDE = hide near a locker
-Pause button = pause menu
+godot/assets/textures/uploaded/
+godot/assets/textures/
 ```
 
-Touch controls are still being improved and should be tested on a real Android device.
+into:
+
+```text
+UnityProject/Assets/Resources/Textures/
+```
+
+during Unity import/build. Runtime materials load them through:
+
+```text
+Resources.Load<Texture2D>("Textures/<texture_name>")
+```
+
+Important texture names currently used by the Unity runtime include:
+
+```text
+wall_leak_color
+wall_leak_alt_c_color
+carpet_fabric_color
+office_ceiling_color
+painted_metal_color
+office_ceiling_emission
+plastic_panel_color
+```
+
+## Missing tab
+
+This is the only missing-feature tab/list for the project. It belongs in the README, not inside the game UI.
+
+### Missing gameplay
+
+- Better authored objective pacing and clue chains.
+- More puzzle variety beyond fuses, keys, switches, breaker, and doors.
+- More advanced enemy states: patrol, investigate, search, chase, attack, give up, and fair hiding validation.
+- Better line-of-sight and hearing logic.
+- More endings with clearer narrative requirements.
+- Inventory/item inspection.
+- More checkpoint and save-slot polish.
+
+### Missing mobile features
+
+- Full customizable control layout.
+- Better touch-look tuning on real Android hardware.
+- Larger accessibility scaling options.
+- Save-slot previews/screenshots.
+- More complete resume-from-menu UX.
+- Real-device testing for touch reliability, frame rate, heat, install, suspend, resume, and save recovery.
+
+### Missing level/content polish
+
+- More modular Level 0 room pieces.
+- More dead ends, maintenance spaces, vents, landmarks, signs, trim, doors, stains, outlets, and rare props.
+- Better placement of the uploaded textures across different surface types.
+- More lighting pockets, dark areas, flicker zones, and broken lights.
+
+### Missing audio polish
+
+- Final authored fluorescent hums.
+- Carpet footsteps.
+- Entity cues.
+- Distant thuds and buzzes.
+- Jumpscare stingers.
+- UI click/confirm/back sounds.
+- Audio mixer groups and Android-friendly compression.
+
+### Missing visual polish
+
+- Post-processing: vignette, film grain, exposure, color grading, bloom, fog tuning, and head bob.
+- Better material tuning for roughness/metalness/normal maps.
+- More optimized mobile lighting.
+- App icon, splash screen, store screenshots, and trailer images.
+
+### Missing optimization/release work
+
+- Release export mode after the debug build path is stable.
+- Texture compression and smaller texture budgets.
+- Audio compression.
+- Unused asset cleanup.
+- Static/baked lighting where possible.
+- Occlusion/visibility optimization.
+- APK size pass.
+- Low-end Android quality mode.
+- Final release notes and versioning.
 
 ## Unity Cloud Build
 
-The main Android APK pipeline is Unity Cloud Build plus GitHub Actions.
-
-Workflow:
+The main Android build workflow is:
 
 ```text
 .github/workflows/unity-cloud-release.yml
 ```
 
-What it does:
+Expected build time is often around 15–25 minutes. That is normal for Unity Cloud Android builds.
 
-1. Triggers the Unity Cloud Android build.
-2. Waits for Unity to finish.
+The workflow:
+
+1. Triggers Unity Cloud Build.
+2. Waits for the Android build.
 3. Downloads the APK artifact.
-4. Publishes the APK to a GitHub Release.
-5. Uploads logs if the Unity build or APK download fails.
-
-Expected build time is often around **15–25 minutes**. That is normal for Unity Cloud Android builds.
-
-Required repository secrets:
-
-```text
-UNITY_BUILD_API_KEY
-UNITY_ARTIFACT_API_KEY
-```
-
-The workflow also supports the older fallback secret name:
-
-```text
-UNITY_BUILD
-```
-
-Do not commit Unity API keys or any other secrets into the repository.
+4. Publishes the APK to GitHub Releases.
+5. Uploads logs if the Unity build or artifact download fails.
 
 ## APK output
 
-The Unity release workflow publishes an APK named:
+The expected Unity APK artifact/release asset is:
 
 ```text
 DesolationTheBackrooms-Unity.apk
 ```
 
-The APK appears in GitHub Releases after a successful workflow run.
+Android cannot install `.7z` or compressed archive files directly. If a compressed archive is ever used later, extract the APK first, then install the APK.
 
-If a compressed `.7z` or `.zip` file is used later, Android cannot install it directly. Extract the archive first, then install the `.apk`.
+## Controls
 
-## How to test on Android
-
-1. Open the latest successful GitHub Release.
-2. Download `DesolationTheBackrooms-Unity.apk`.
-3. On Android, allow installation from your browser or file manager if required.
-4. Install the APK.
-5. Launch **Desolation: The Backrooms**.
-6. Test the main menu, play button, movement, USE button, hiding, breaker/exit objective, pause menu, and save flow.
-
-## What is implemented
-
-- Unity project scaffold.
-- Unity Android settings.
-- Unity Cloud Build workflow.
-- GitHub Release publishing workflow.
-- Main menu direction and UI style.
-- Saves/settings/feedback/credits prototypes.
-- Playable first-person Level 0 batch.
-- Objective loop foundation.
-- Enemy pressure foundation.
-- Hiding foundation.
-- HUD foundation.
-- Persistent settings foundation.
-- In-game missing/status tab.
-- Legacy Godot prototype and texture archive kept for reference.
-
-## Still missing / next batches
-
-The game is still a prototype. The next work should be done in small batches and tested after each build.
-
-High-priority next items:
-
-1. Stabilize the current Unity scripts and fix any compile/runtime errors from the latest gameplay batch.
-2. Make the Unity menu, saves, settings, feedback, credits, and gameplay runtime use one clean active script path.
-3. Improve mobile touch input so movement and look feel good on a phone.
-4. Improve the objective chain with clearer prompts, better save-slot resume, and better puzzle feedback.
-5. Improve enemy behavior with line of sight, hearing, hiding validation, chase states, and fair fail states.
-6. Add more Level 0 rooms, dead ends, maintenance rooms, landmarks, doors, trim, vents, signs, and rare props.
-7. Replace procedural placeholder audio with authored compressed sound assets.
-8. Import final texture assets into the Unity project and apply them to materials.
-9. Add real post-processing polish: vignette, film grain, color grading, exposure tuning, fog, and head bob.
-10. Optimize APK size and Android performance.
-11. Test on real Android devices for crashes, heat, frame rate, touch layout, installation, pause/resume, and save recovery.
-12. Prepare final store material: app icon, screenshots, trailer, privacy text, release notes, and versioning.
-
-## Legacy Godot project
-
-The `godot/` folder is the previous prototype path. It contains:
-
-- Godot scripts and scene files.
-- Generated Backrooms materials.
-- Uploaded texture archive.
-- Godot Android export configuration.
-
-It is useful as a reference for materials, gameplay ideas, and old build history, but the active direction is Unity.
-
-## Documentation
-
-Useful documents:
+Keyboard testing:
 
 ```text
-Documentation/UNITY_CLOUD_BUILD.md
-Documentation/UNITY_MIGRATION_STATUS.md
-Documentation/APK_DOWNLOAD_HELP.md
-Documentation/UPLOADED_TEXTURE_ARCHIVE_INVENTORY.md
-Documentation/Level0_Game_Design.md
-Documentation/UI_Prompt_Pack.md
-MISSING_FEATURES.md
-CONTROLS.md
-BUILD_ANDROID.md
+WASD / Arrow keys = move
+Mouse = look
+Left Shift = sprint
+E = use
+C / Left Ctrl = hide near locker
+Q = throw decoy
+Esc / Back = pause or go back
+```
+
+Mobile testing:
+
+```text
+USE = interact with nearby object
+SPRINT = sprint while moving
+HIDE = hide near locker
+DECOY = throw distraction
+Back button = pause or go back
 ```
 
 ## Development rule
 
-Work in small batches. Build and test after each batch. Unity Cloud builds are slow, so avoid triggering a full APK build for every tiny edit unless a device test is needed.
+Work in small batches, then test the Unity build. Unity Cloud builds are slow, so avoid triggering a full APK build for every tiny edit unless a device test is needed.
