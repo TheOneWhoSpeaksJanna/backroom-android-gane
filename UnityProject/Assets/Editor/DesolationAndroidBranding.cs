@@ -36,7 +36,6 @@ public sealed class DesolationAndroidBrandingPrebuild : IPreprocessBuildWithRepo
         if (uiKitIcon != null)
         {
             PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, new[] { uiKitIcon });
-            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new[] { uiKitIcon });
         }
         else
         {
@@ -46,7 +45,6 @@ public sealed class DesolationAndroidBrandingPrebuild : IPreprocessBuildWithRepo
             if (icon != null)
             {
                 PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, new[] { icon });
-                PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new[] { icon });
             }
         }
 
