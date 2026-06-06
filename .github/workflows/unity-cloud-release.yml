@@ -41,6 +41,7 @@ jobs:
           key = clean(os.getenv("UNITY_BUILD_API_KEY")) or clean(os.getenv("UNITY_ARTIFACT_API_KEY")) or clean(os.getenv("UNITY_BUILD"))
           if not key:
               raise SystemExit("Missing Unity API key secret.")
+
           base = os.environ["UNITY_BUILD_API_BASE"].rstrip("/")
           headers = {"Authorization": "Basic " + key, "Content-Type": "application/json"}
 
@@ -126,6 +127,7 @@ jobs:
           project = next((p for p in items(projects) if str(p.get("name", p.get("projectName", ""))) == os.environ["UNITY_PROJECT_NAME"]), None)
           if not project:
               raise SystemExit("Unity project not found. See logs/projects.json.")
+
           org = pick(project, ["orgid", "orgId", "org_id", "organizationId", "organizationid"])
           project_id = pick(project, ["projectid", "projectId", "project_id", "id", "guid"])
           if not org or not project_id:
@@ -138,6 +140,7 @@ jobs:
               target = next((t for t in items(targets) if "android" in json.dumps(t).lower()), None)
           if not target:
               raise SystemExit("Android build target not found. See logs/buildtargets.json.")
+
           target_id = pick(target, ["buildtargetid", "buildTargetId", "buildtargetId", "id", "name", "buildTargetName"])
           print("Unity target", target_id)
 
@@ -152,8 +155,10 @@ jobs:
               save("latest_builds.json", builds)
               if items(builds):
                   build_number = pick(items(builds)[0], ["number", "build", "buildNumber", "build_number", "buildnumber"])
+
           if not build_number:
               raise SystemExit("Build started but no build number was found.")
+
           print("Build number", build_number)
           Path("logs/build_number.txt").write_text(build_number, encoding="utf-8")
           status_url = f"{base}/orgs/{org}/projects/{project_id}/buildtargets/{target_id}/builds/{build_number}"
@@ -175,6 +180,7 @@ jobs:
                           save("unity_" + suffix.replace("/", "_"), data)
                   raise SystemExit("Unity Cloud build failed. Logs saved.")
               time.sleep(20)
+
           if not final:
               raise SystemExit("Unity Cloud build timed out.")
           save("successful_build_detail.json", final)
@@ -246,8 +252,13 @@ jobs:
                   save("share_response.json", share)
               raise SystemExit("Build succeeded but APK artifact download failed. Logs saved.")
 
-          Path("unity_build_meta.json").write_text(json.dumps({"org": org, "project": project_id, "target": target_id, "build": build_number}, indent=2), encoding="utf-8")
+          compressed = Path("dist") / (os.environ["RELEASE_APK_NAME"] + ".zip")
+          with zipfile.ZipFile(compressed, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              archive.write(output, output.name)
+
+          Path("unity_build_meta.json").write_text(json.dumps({"org": org, "project": project_id, "target": target_id, "build": build_number, "apk_size": output.stat().st_size, "zip_size": compressed.stat().st_size}, indent=2), encoding="utf-8")
           print("Downloaded", output, output.stat().st_size)
+          print("Compressed", compressed, compressed.stat().st_size)
           PY
           python3 unity_cloud_release.py
 
@@ -268,4 +279,4 @@ jobs:
         run: |
           set -eux
           TAG="unity-cloud-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" dist/DesolationTheBackrooms-Unity.apk unity_build_meta.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Desolation: The Backrooms Unity Cloud Build ${GITHUB_RUN_NUMBER}" --notes "Unity Cloud Build APK automatically triggered from GitHub Actions." --latest
+          gh release create "$TAG" dist/DesolationTheBackrooms-Unity.apk dist/DesolationTheBackrooms-Unity.apk.zip unity_build_meta.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Desolation: The Backrooms Unity Cloud Build ${GITHUB_RUN_NUMBER}" --notes "Unity Cloud Build APK automatically triggered from GitHub Actions. The APK is included directly and also as a compressed .zip." --latest
