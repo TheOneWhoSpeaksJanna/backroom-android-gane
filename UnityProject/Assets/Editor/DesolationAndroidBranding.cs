@@ -8,7 +8,7 @@ using UnityEngine;
 [InitializeOnLoad]
 public static class DesolationAndroidBranding
 {
-    const string IconPath = "Assets/AppIcon.png";
+    const string IconPath = "Assets/AppIcon.jpg";
 
     static DesolationAndroidBranding()
     {
