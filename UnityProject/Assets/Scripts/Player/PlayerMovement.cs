@@ -108,7 +108,7 @@ namespace Desolation.Player
             transform.rotation *= Quaternion.Euler(0, finalTurnX, 0);
 
             // Clean inertia decay for touch pads
-            touchInputRight = Vector2.Lerp(touchInputRight, Vector2.Zero, Time.deltaTime * 6f);
+            touchInputRight = Vector2.Lerp(touchInputRight, Vector2.zero, Time.deltaTime * 6f);
         }
 
         private void HandleStamina()
