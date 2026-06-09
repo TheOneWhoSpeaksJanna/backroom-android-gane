@@ -1,145 +1,99 @@
-# Desolation: The Backrooms
+# Desolation: The Backrooms — Android
 
-**Desolation: The Backrooms** is a high-quality Android Backrooms horror game built in Unity.
+A first-person horror game set in the Backrooms, built in Unity for Android.
 
-## Current format
+## Project Structure
 
-- Engine: Unity 6 LTS
-- Language: C#
-- Target: Android
-- App name: Desolation: The Backrooms
-- Main Unity project: `UnityProject/`
-- UI Kit: Desolation Backrooms UI Kit (Canvas-based menu system)
-
-## Current gameplay state
-
-The Unity build has a playable Level 0 prototype with:
-
-- Main menu, settings, pause, save, load, slot previews, and resume flow.
-- First-person movement with Android-style touch controls.
-- Health, sanity, stamina, sprinting, hiding, decoys, and item inspection.
-- Objective chain with notes, fuses, yellow card, blue card, valve, code panel, pressure gauge, switch order, breaker, exit, and truth door.
-- Extra authored clue chains and clearer ending requirements.
-- Enemy patrol, investigate, search, chase, attack, and give-up behavior.
-- Line-of-sight, hearing, entity cue, and fair locker hiding validation.
-- Modular Level 0 room pieces, dead ends, maintenance spaces, vents, signs, trim, outlets, stains, doors, rare props, and extra landmarks.
-- Improved uploaded texture placement across wall, carpet, ceiling, metal, plastic/sign, stain, prop, and lighting surfaces.
-- Lighting pockets, dark zones, flicker lights, broken fluorescent panels, fog tuning, vignette-style overlays, film grain, and head bob.
-- Authored runtime audio polish: fluorescent hum, carpet footsteps, entity cues, distant thuds/buzzes, jumpscare stingers, and UI click feedback.
-- High culling/visibility optimization so off-camera or hidden scene renderers are disabled instead of adding a low-quality mode.
-- Android-focused controls: touch look tuning, accessibility scale, audio volume, customizable layout support, and Android back-button handling.
-- App icon configured from the uploaded golden **D** Backrooms phone image at `UnityProject/Assets/AppIcon.png`.
-
-## App icon and branding
-
-The uploaded phone image is now the app icon source:
-
-```text
-UnityProject/Assets/AppIcon.png
-UnityProject/Assets/Editor/DesolationAndroidBranding.cs
+```
+backroom-android-gane/
+├── .github/
+│   └── workflows/
+│       └── unity-cloud-release.yml    # CI: triggers Unity Cloud Build + GitHub Release
+├── UnityProject/
+│   ├── Assets/
+│   │   ├── AppIcon.png                # App icon
+│   │   ├── Editor/                    # Editor-only scripts (build processing, branding)
+│   │   │   ├── DesolationAndroidBranding.cs
+│   │   │   ├── DesolationBuildSetup.cs
+│   │   │   └── TextureBridgeBuildProcessor.cs
+│   │   ├── Resources/
+│   │   │   └── Textures/              # Runtime-loaded textures (carpet, walls, ceilings, etc.)
+│   │   ├── Scenes/
+│   │   │   ├── DesolationBootstrap.unity
+│   │   │   └── MainMenu.unity
+│   │   ├── Scripts/
+│   │   │   ├── Data/
+│   │   │   │   └── UnitySaveManager.cs    # Save/load game state (GameStateData)
+│   │   │   ├── DesolationRuntime.cs        # Main menu system (OnGUI) — 5 screens
+│   │   │   ├── FirstPlayableBatch.cs      # First-person Backrooms gameplay
+│   │   │   ├── GameplayMobileCompletion.cs
+│   │   │   ├── MissingFeaturesTab.cs
+│   │   │   ├── Environment/
+│   │   │   │   └── LightFlicker.cs        # Flickering light effect
+│   │   │   ├── Inventory/
+│   │   │   │   └── InventoryManager.cs    # Inventory system
+│   │   │   ├── Items/
+│   │   │   │   ├── AlmondWater.cs         # Consumable item
+│   │   │   │   └── BatteryAction.cs       # Battery interaction item
+│   │   │   └── Player/
+│   │   │       ├── PlayerMovement.cs      # First-person movement controller
+│   │   │       └── SanityManager.cs       # Sanity meter system
+│   │   └── UI/                            # Design reference screenshots
+│   │       ├── 01_main_menu_clean.png
+│   │       ├── 02_save_slots_clean.png
+│   │       ├── 03_settings_clean.png
+│   │       ├── 04_credits_clean.png
+│   │       └── 05_feedback_clean.png
+│   ├── Packages/
+│   │   └── manifest.json
+│   └── ProjectSettings/
+│       ├── EditorBuildSettings.asset
+│       ├── ProjectSettings.asset
+│       └── ProjectVersion.txt
+├── .gitignore
+└── README.md
 ```
 
-`DesolationAndroidBranding.cs` applies the icon to Android Player Settings before build and sets Android-friendly audio import compression for authored audio clips.
+## Build Pipeline
 
-## Texture bridge
+Every push to `main` automatically triggers a Unity Cloud Build:
 
-You do not need to manually move the uploaded Godot textures.
+1. Unity Cloud Build compiles the Android APK
+2. The APK is downloaded and compressed into a ZIP
+3. A GitHub Release is created with both the APK and ZIP
 
-The Unity editor/build bridge copies textures from:
+Workflow: `.github/workflows/unity-cloud-release.yml`
 
-```text
-godot/assets/textures/uploaded/
-godot/assets/textures/
-```
+Required GitHub Secrets:
+- `UNITY_BUILD_API_KEY` — Unity Cloud Build API key
+- `UNITY_ARTIFACT_API_KEY` — Unity Artifact API key (fallback)
 
-into:
+## Menu System
 
-```text
-UnityProject/Assets/Resources/Textures/
-```
+The menu is drawn entirely via Unity's `OnGUI()` (IMGUI) system in `DesolationRuntime.cs`.
+It renders 5 screens matching the industrial backrooms aesthetic:
 
-during Unity import/build. Runtime materials load them through:
+| Screen | Description |
+|--------|-------------|
+| **Main** | Hero title "DESOLATION: THE BACKROOMS" with Play, Settings, Credits buttons |
+| **Saves** | 3 save slots with unlock/lock state, level names, golden card design |
+| **Settings** | Volume sliders (master/music/SFX), brightness, graphics quality capsules |
+| **Credits** | Scrollable credits listing team members and contributors |
+| **Feedback** | Text input + email + category dropdown with send button |
 
-```text
-Resources.Load<Texture2D>("Textures/<texture_name>")
-```
+Visual style: Dark panels with golden-orange glow, scanline overlay, vignette effect,
+pulsing title text, glitch effects — matching the liminal backrooms horror aesthetic.
 
-Important texture names currently used by the Unity runtime include:
+## How to Contribute
 
-```text
-wall_leak_color
-wall_leak_alt_c_color
-carpet_fabric_color
-office_ceiling_color
-painted_metal_color
-office_ceiling_emission
-plastic_panel_color
-```
+1. Clone the repo
+2. Open `UnityProject/` in Unity (check `ProjectVersion.txt` for the correct editor version)
+3. Make changes, commit, and push to `main`
+4. The Unity Cloud Build will trigger automatically
+5. Check the GitHub Actions tab for build status and the Releases tab for the APK
 
-## Remaining release work
+## Design Reference
 
-The remaining items are release/QA tasks rather than core missing gameplay:
-
-- Real-device Android testing for touch reliability, frame rate, heat, install, suspend, resume, and save recovery.
-- Final manual review of APK size and device performance.
-- Store-ready screenshots/trailer export after the final APK build is stable.
-- Final release notes and versioning.
-
-## Unity Cloud Build
-
-The main Android build workflow is:
-
-```text
-.github/workflows/unity-cloud-release.yml
-```
-
-Expected build time is often around 15–25 minutes for Unity Cloud Android builds.
-
-The workflow:
-
-1. Triggers Unity Cloud Build.
-2. Waits for the Android build.
-3. Downloads the APK artifact.
-4. Publishes the APK to GitHub Releases.
-5. Uploads logs if the Unity build or artifact download fails.
-
-## APK output
-
-The expected Unity APK artifact/release asset is:
-
-```text
-DesolationTheBackrooms-Unity.apk
-```
-
-Android cannot install `.7z` or compressed archive files directly. If a compressed archive is ever used later, extract the APK first, then install the APK.
-
-## Controls
-
-Keyboard testing:
-
-```text
-WASD / Arrow keys = move
-Mouse = look
-Left Shift = sprint
-E = use
-C / Left Ctrl = hide near locker
-Q = throw decoy
-Esc / Back = pause or go back
-```
-
-Mobile testing:
-
-```text
-Left side = movement area
-Right side = look area
-USE = interact with nearby object
-SPRINT = sprint while moving
-HIDE = hide near locker
-DECOY = throw distraction
-BAG = inventory / item inspection
-Back button = pause or go back
-```
-
-## Development rule
-
-Work in small batches, then test the Unity build. Unity Cloud builds are slow, so avoid triggering a full APK build for every tiny edit unless a device test is needed.
+The `UnityProject/Assets/UI/` directory contains 5 clean design screenshots showing the
+target visual style for each menu screen. These are the reference images for the IMGUI
+menu rendering in `DesolationRuntime.cs`.
