@@ -3,8 +3,8 @@ using System;
 
 public sealed class DesolationRuntime : MonoBehaviour
 {
-    enum Screen { Menu, Saves, Settings, Credits, Feedback, Game }
-    Screen current = Screen.Menu;
+    enum MenuScreen { Menu, Saves, Settings, Credits, Feedback, Game }
+    MenuScreen current = MenuScreen.Menu;
 
     // Textures
     Texture2D px, bg, gold, dark, clear, none, panelBg, highlight;
@@ -41,7 +41,7 @@ public sealed class DesolationRuntime : MonoBehaviour
 
         int slot = PlayerPrefs.GetInt("SelectedSaveSlot", 0);
         if (slot > 0 && PlayerPrefs.GetInt("SaveSlot" + slot + "_Exists", 0) == 1)
-            current = Screen.Game;
+            current = MenuScreen.Game;
     }
 
     void Update()
@@ -62,7 +62,7 @@ public sealed class DesolationRuntime : MonoBehaviour
         DrawDecor();
 
         // Screen tint for certain screens
-        if (current == Screen.Saves || current == Screen.Feedback)
+        if (current == MenuScreen.Saves || current == MenuScreen.Feedback)
         {
             GUI.color = new Color(0.15f, 0.08f, 0f, 0.12f);
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), px);
@@ -78,11 +78,11 @@ public sealed class DesolationRuntime : MonoBehaviour
 
         switch (current)
         {
-            case Screen.Menu:     DrawMenu();     break;
-            case Screen.Saves:    DrawSaves();    break;
-            case Screen.Settings: DrawSettings(); break;
-            case Screen.Credits:  DrawCredits();  break;
-            case Screen.Feedback: DrawFeedback(); break;
+            case MenuScreen.Menu:     DrawMenu();     break;
+            case MenuScreen.Saves:    DrawSaves();    break;
+            case MenuScreen.Settings: DrawSettings(); break;
+            case MenuScreen.Credits:  DrawCredits();  break;
+            case MenuScreen.Feedback: DrawFeedback(); break;
             default:              DrawGame();     break;
         }
 
@@ -122,10 +122,10 @@ public sealed class DesolationRuntime : MonoBehaviour
         GUI.DrawTexture(R(0.33f, 0.32f, 0.34f, 0.44f), px);
         GUI.color = Color.white;
 
-        MetalButton(0.36f, BTN_START_Y, BTN_W, BTN_H, "PLAY",     () => current = Screen.Saves);
-        MetalButton(0.36f, BTN_START_Y + BTN_GAP, BTN_W, BTN_H, "SETTINGS", () => current = Screen.Settings);
-        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 2f, BTN_W, BTN_H, "CREDITS",  () => current = Screen.Credits);
-        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 3f, BTN_W, BTN_H, "FEEDBACK", () => current = Screen.Feedback);
+        MetalButton(0.36f, BTN_START_Y, BTN_W, BTN_H, "PLAY",     () => current = MenuScreen.Saves);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP, BTN_W, BTN_H, "SETTINGS", () => current = MenuScreen.Settings);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 2f, BTN_W, BTN_H, "CREDITS",  () => current = MenuScreen.Credits);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 3f, BTN_W, BTN_H, "FEEDBACK", () => current = MenuScreen.Feedback);
     }
 
     // ─── SAVES ───
@@ -138,7 +138,7 @@ public sealed class DesolationRuntime : MonoBehaviour
             DrawSaveSlot(xs[i], 0.37f, 0.14f, 0.34f, "SAVE " + (i + 1),
                          "Backrooms\nLevel 1", () => Play(i + 1));
 
-        MetalButton(0.42f, 0.78f, 0.16f, 0.06f, "BACK", () => current = Screen.Menu);
+        MetalButton(0.42f, 0.78f, 0.16f, 0.06f, "BACK", () => current = MenuScreen.Menu);
     }
 
     void DrawSaveSlot(float x, float y, float w, float h, string header,
@@ -217,7 +217,7 @@ public sealed class DesolationRuntime : MonoBehaviour
         }
 
         MetalButton(0.40f, 0.805f, 0.2f, 0.065f, "BACK",
-                    () => { SavePrefs(); current = Screen.Menu; });
+                    () => { SavePrefs(); current = MenuScreen.Menu; });
     }
 
     // ─── CREDITS ───
@@ -241,7 +241,7 @@ public sealed class DesolationRuntime : MonoBehaviour
             GUI.Label(R(0.56f, ry, 0.14f, 0.04f), names[i], labelStyle);
         }
 
-        MetalButton(0.43f, 0.79f, 0.14f, 0.065f, "BACK", () => current = Screen.Menu);
+        MetalButton(0.43f, 0.79f, 0.14f, 0.065f, "BACK", () => current = MenuScreen.Menu);
     }
 
     // ─── FEEDBACK ───
@@ -264,7 +264,7 @@ public sealed class DesolationRuntime : MonoBehaviour
             issueIndex = (issueIndex + 1) % issueTypes.Length;
 
         MetalButton(0.41f, 0.805f, 0.18f, 0.062f, "SEND", SendFeedback);
-        MetalButton(0.43f, 0.88f, 0.14f, 0.055f, "BACK", () => current = Screen.Menu);
+        MetalButton(0.43f, 0.88f, 0.14f, 0.055f, "BACK", () => current = MenuScreen.Menu);
     }
 
     // ─── GAME SCREEN ───
@@ -274,7 +274,7 @@ public sealed class DesolationRuntime : MonoBehaviour
         Rect panel = R(0.28f, 0.37f, 0.44f, 0.26f);
         DrawPanel(panel);
         GUI.Label(new Rect(panel.x, panel.y + 30, panel.width, 50), gameMsg, centerStyle);
-        MetalButton(0.42f, 0.65f, 0.16f, 0.06f, "MAIN MENU", () => current = Screen.Menu);
+        MetalButton(0.42f, 0.65f, 0.16f, 0.06f, "MAIN MENU", () => current = MenuScreen.Menu);
     }
 
     // ─── UI PRIMITIVES ───
@@ -428,7 +428,7 @@ public sealed class DesolationRuntime : MonoBehaviour
         PlayerPrefs.SetInt("SaveSlot" + slot + "_Exists", 1);
         PlayerPrefs.Save();
         gameMsg = "SAVE " + slot + " SELECTED - LEVEL 0 READY";
-        current = Screen.Game;
+        current = MenuScreen.Game;
     }
 
     void SendFeedback()
@@ -450,10 +450,10 @@ public sealed class DesolationRuntime : MonoBehaviour
 
     void Back()
     {
-        if (current == Screen.Settings) SavePrefs();
-        if (current != Screen.Menu)
+        if (current == MenuScreen.Settings) SavePrefs();
+        if (current != MenuScreen.Menu)
         {
-            current = Screen.Menu;
+            current = MenuScreen.Menu;
             toastText = "";
         }
     }
