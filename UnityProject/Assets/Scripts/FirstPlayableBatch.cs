@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public sealed class FirstPlayableBatch:MonoBehaviour{
 enum S{Menu,Game,Pause,End,Settings,Status,Missing}S s;Camera cam;CharacterController cc;GameObject p,e;GUIStyle l,b,c;Texture2D gd,dk,rd,gn;Material wall,wall2,flr,ceil,met,glw,pap;List<GameObject> items=new List<GameObject>();List<Light> lights=new List<Light>();string[] notes={"The carpet is wet, but no pipe runs above it.","Three fuses wake the grid. Two switches open maintenance.","Blue opens what yellow cannot.","Lockers only make you quiet.","The black door wants every note."};int f,n;float hp=100,sa=100,st=100,yaw,pit,msgT,decT,vol=.9f,sen=1,br=.9f;bool yk,bk,pow,swA,swB,run,use,hide,dec;string msg="",end="";Vector3 target,decPos;
 [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]static void Boot(){if(FindObjectOfType<FirstPlayableBatch>())return;var o=new GameObject("FirstPlayableBatch");DontDestroyOnLoad(o);o.AddComponent<FirstPlayableBatch>();}
-void Awake(){foreach(var r in FindObjectsOfType<DesolationRuntime>())r.enabled=false;}
+void Awake(){}
 void Start(){Application.targetFrameRate=60;Screen.sleepTimeout=SleepTimeout.NeverSleep;vol=PlayerPrefs.GetFloat("desolation_volume",.9f);sen=PlayerPrefs.GetFloat("desolation_sensitivity",1);br=PlayerPrefs.GetFloat("desolation_brightness",.9f);AudioListener.volume=vol;Tex();Style();Mats();World();Menu();}
 Texture2D Px(Color x){var t=new Texture2D(1,1);t.SetPixel(0,0,x);t.Apply();return t;}
 void Tex(){gd=Px(new Color(1,.78f,.16f,.95f));dk=Px(new Color(0,0,0,.76f));rd=Px(new Color(.72f,.03f,.02f,.78f));gn=Px(new Color(.05f,.56f,.14f,.78f));}
@@ -26,7 +26,37 @@ void AI(){bool h=Close()&&Close().name=="locker"&&hide;var ep=e.transform.positi
 void End(string t){end=t;Save();s=S.End;p.SetActive(false);e.SetActive(false);cam.transform.SetParent(null);cam.transform.position=new Vector3(0,1.6f,-9);cam.transform.rotation=Quaternion.Euler(5,0,0);Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
 void Back(){if(s==S.Game){Save();s=S.Pause;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}else if(s==S.Pause){s=S.Game;Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}else Menu();}
 void Msg(string x,float t){msg=x;msgT=t;}
-void OnGUI(){GUI.DrawTexture(new Rect(0,0,Screen.width,Screen.height),dk);if(s==S.Menu){Title("DESOLATION: THE BACKROOMS");Btn(70,210,"PLAY",Run);Btn(70,295,"LOAD",Load);Btn(70,380,"SETTINGS", ()=>s=S.Settings);Btn(70,465,"STATUS", ()=>s=S.Status);Btn(70,550,"MISSING", ()=>s=S.Missing);}else if(s==S.Settings){Title("SETTINGS");vol=Sl(230,"VOLUME",vol,0,1);sen=Sl(310,"SENSITIVITY",sen,.35f,2);br=Sl(390,"BRIGHTNESS",br,.35f,1.2f);Btn(Screen.width/2-130,500,"SAVE",()=>{PlayerPrefs.SetFloat("desolation_volume",vol);PlayerPrefs.SetFloat("desolation_sensitivity",sen);PlayerPrefs.SetFloat("desolation_brightness",br);PlayerPrefs.Save();AudioListener.volume=vol;Menu();});}else if(s==S.Status){Title("STATUS");GUI.Label(new Rect(110,210,Screen.width-220,380),"IMPLEMENTED\n\nUnity runtime uses the Godot texture archive through the texture bridge.\nLarger Level 0 maze, notes, yellow key, blue key, switches, breaker, exit, truth door, decoy, hiding, save/load, health, sanity, stamina, HUD, settings, and Android back handling.",l);Btn(Screen.width/2-130,Screen.height-90,"BACK",Menu);}else if(s==S.Missing){Title("WHAT ARE WE MISSING");GUI.Label(new Rect(90,170,Screen.width-180,Screen.height-260),"1. Real Android phone QA for touch, FPS, heat, install, resume, and saves.\n2. Final Unity Canvas UI and customizable mobile controls.\n3. Authored audio for hum, footsteps, entity cues, jumpscares, and UI.\n4. Post-processing: vignette, film grain, color grade, fog, bloom, head bob.\n5. More modular rooms, maintenance areas, dead ends, landmarks, vents, signs, trim, doors.\n6. Enemy line-of-sight, hearing, patrol, search, chase, attack, and fair hiding validation.\n7. More puzzles, item inspection, save slots with screenshots, better resume UX.\n8. Final icon, splash, screenshots, trailer, privacy text, release notes.\n9. Android optimization: compressed textures/audio, APK size, static lighting, occlusion, low-end mode.\n10. Final release export mode after the debug build path stays stable.",l);Btn(Screen.width/2-130,Screen.height-90,"BACK",Menu);}else if(s==S.Game){GUI.Label(new Rect(25,20,700,35),f<3?"Find fuses "+f+"/3":!yk?"Find yellow key":!bk?"Find blue key":!pow?"Power breaker":"Escape",l);Bar(25,60,hp,"HEALTH");Bar(25,86,sa,"SANITY");Bar(25,112,st,"STAMINA");var o=Close();if(o)GUI.Label(new Rect(0,Screen.height*.72f,Screen.width,45),o.name.ToUpper()+" [E]",c);if(msgT>0)GUI.Label(new Rect(0,150,Screen.width,65),msg,c);if(GUI.Button(new Rect(Screen.width-160,Screen.height-160,130,55),"USE",b))use=true;if(GUI.RepeatButton(new Rect(Screen.width-310,Screen.height-160,130,55),"SPRINT",b))run=true;if(GUI.RepeatButton(new Rect(Screen.width-235,Screen.height-95,130,55),"HIDE",b))hide=true;if(GUI.Button(new Rect(Screen.width-385,Screen.height-95,130,55),"DECOY",b))dec=true;}else if(s==S.Pause){Title("PAUSED");Btn(Screen.width/2-130,300,"RESUME",Back);Btn(Screen.width/2-130,390,"SAVE",Save);Btn(Screen.width/2-130,480,"MENU",Menu);}else{Title(end);Btn(Screen.width/2-130,390,"MENU",Menu);}}
+void OnGUI(){
+        // Menu is handled by DesolationRuntime - only draw in-game HUD
+        if(s==S.Game){
+            GUI.color=new Color(0,0,0,.35f);
+            GUI.DrawTexture(new Rect(0,0,Screen.width,60),dk);
+            GUI.DrawTexture(new Rect(0,Screen.height-60,Screen.width,60),dk);
+            GUI.color=Color.white;
+            Bar(25,15,hp,"HEALTH");
+            Bar(25,35,sa,"SANITY");
+            Bar(25,55,st,"STAMINA");
+            GUI.color=new Color(1,.82f,.3f,.7f);
+            GUI.DrawTexture(new Rect(Screen.width/2-1,Screen.height/2-10,2,20),gd);
+            GUI.DrawTexture(new Rect(Screen.width/2-10,Screen.height/2-1,20,2),gd);
+            GUI.color=Color.white;
+            var o=Close();
+            if(o)GUI.Label(new Rect(0,Screen.height*.72f,Screen.width,45),o.name.ToUpper()+" [E]",c);
+            if(msgT>0)GUI.Label(new Rect(0,150,Screen.width,65),msg,c);
+            if(GUI.Button(new Rect(Screen.width-160,Screen.height-160,130,55),"USE",b))use=true;
+            if(GUI.RepeatButton(new Rect(Screen.width-310,Screen.height-160,130,55),"SPRINT",b))run=true;
+            if(GUI.RepeatButton(new Rect(Screen.width-235,Screen.height-95,130,55),"HIDE",b))hide=true;
+            if(GUI.Button(new Rect(Screen.width-385,Screen.height-95,130,55),"DECOY",b))dec=true;
+        }else if(s==S.Pause){
+            Title("PAUSED");
+            Btn(Screen.width/2-130,300,"RESUME",Back);
+            Btn(Screen.width/2-130,390,"SAVE",Save);
+            Btn(Screen.width/2-130,480,"MENU",Menu);
+        }else if(s==S.End){
+            Title(end);
+            Btn(Screen.width/2-130,390,"MENU",Menu);
+        }
+    }
 float Sl(float y,string t,float v,float a,float m){GUI.Label(new Rect(140,y,230,35),t,l);return GUI.HorizontalSlider(new Rect(390,y+10,Screen.width-540,30),v,a,m);}
 void Title(string t){GUI.Label(new Rect(0,55,Screen.width,90),t,new GUIStyle(c){fontSize=46});}
 void Btn(float x,float y,string t,Action a){if(GUI.Button(new Rect(x,y,260,65),t,b))a();}

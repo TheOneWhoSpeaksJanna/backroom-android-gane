@@ -1,55 +1,581 @@
 using UnityEngine;
 using System;
 
-public sealed class DesolationRuntime:MonoBehaviour{
-enum S{Menu,Saves,Settings,Credits,Feedback,Game}
-S s=S.Menu;Texture2D px,bg,gold,dark,clear,none;GUIStyle title,sub,lab,btn,ghost,field,center;float master=.9f,music=.75f,sfx=.85f,bright=.9f,sens=1f;int gfx=2,issue;string fb="",mail="",toast="",gameMsg="";float toastUntil;readonly string[] issues={"BUG","BALANCE","PERFORMANCE","IDEA","OTHER"};
-void Start(){
-    Application.targetFrameRate=60;
-    Screen.orientation=ScreenOrientation.LandscapeLeft;
-    Load();Tex();Styles();MakeBg();Apply();
-    // If a save slot was selected via the UI Kit menu, go straight to game
-    int slot = PlayerPrefs.GetInt("SelectedSaveSlot", 0);
-    if (slot > 0 && PlayerPrefs.GetInt("SaveSlot"+slot+"_Exists", 0) == 1) {
-        s = S.Game;
-    }
-}
-void Update(){if(Input.GetKeyDown(KeyCode.Escape)||Input.GetKeyDown(KeyCode.Backspace))Back();}
-void OnGUI(){if(px==null){Tex();Styles();MakeBg();}GUI.DrawTexture(R(0,0,1,1),bg,ScaleMode.StretchToFill);Decor();TintByScreen();if(bright<.98f){GUI.color=new Color(0,0,0,(1f-bright)*.45f);GUI.DrawTexture(R(0,0,1,1),px);GUI.color=Color.white;}switch(s){case S.Menu:Menu();break;case S.Saves:Saves();break;case S.Settings:Settings();break;case S.Credits:Credits();break;case S.Feedback:Feedback();break;default:Game();break;}Toast();}
-void Menu(){Brand("");B(.365f,.355f,.27f,.074f,"PLAY",()=>s=S.Saves);B(.365f,.465f,.27f,.074f,"SETTINGS",()=>s=S.Settings);B(.365f,.575f,.27f,.074f,"CREDITS",()=>s=S.Credits);B(.365f,.685f,.27f,.074f,"FEEDBACK",()=>s=S.Feedback);}
-void Saves(){Brand("SAVES");Card(.285f,"SAVE 1","Backrooms\nLevel 1",()=>Play(1));Card(.44f,"SAVE 2","Backrooms\nLevel 1",()=>Play(2));Card(.595f,"SAVE 3","Backrooms\nLevel 1",()=>Play(3));B(.455f,.82f,.09f,.06f,"BACK",()=>s=S.Menu);}
-void Settings(){Brand("SETTINGS");P(R(.305f,.35f,.39f,.40f));bool c=false;master=Sl("MASTER VOLUME",.39f,master,0,1,ref c);music=Sl("MUSIC VOLUME",.46f,music,0,1,ref c);sfx=Sl("SFX VOLUME",.53f,sfx,0,1,ref c);bright=Sl("BRIGHTNESS",.60f,bright,.35f,1.2f,ref c);sens=Sl("SENSITIVITY",.67f,sens,.35f,2,ref c);GUI.Label(R(.325f,.72f,.08f,.045f),"GRAPHICS",lab);string[] n={"LOW","MEDIUM","HIGH"};for(int i=0;i<3;i++){Rect r=R(.435f+i*.06f,.718f,.052f,.045f);if(gfx==i){GUI.color=new Color(1,.72f,.1f,.25f);GUI.DrawTexture(r,px);GUI.color=Color.white;}if(GUI.Button(r,n[i],btn)){gfx=i;c=true;Apply();}}if(B(.405f,.805f,.19f,.065f,"BACK",()=>{Save();s=S.Menu;})){}if(c)Save();}
-void Credits(){Brand("CREDITS");Rect p=R(.31f,.36f,.38f,.36f);P(p);string[] a={"GAME DESIGN","PROGRAMMING","UI DESIGN","ENVIRONMENT ART","SOUND DESIGN","SPECIAL THANKS"};for(int i=0;i<a.Length;i++){float y=.395f+i*.046f;GUI.Label(R(.355f,y,.18f,.04f),a[i],lab);Line(R(.49f,y+.022f,.08f,.004f));GUI.Label(R(.58f,y,.13f,.04f),i==5?"THE PLAYERS":"SOLO DEVELOPER",lab);}B(.43f,.79f,.14f,.065f,"BACK",()=>s=S.Menu);}
-void Feedback(){Brand("FEEDBACK");P(R(.29f,.36f,.42f,.42f));GUI.Label(R(.315f,.39f,.16f,.04f),"YOUR FEEDBACK",lab);fb=GUI.TextArea(R(.315f,.43f,.37f,.14f),fb,700,field);GUI.Label(R(.315f,.59f,.18f,.04f),"EMAIL (OPTIONAL)",lab);mail=GUI.TextField(R(.315f,.63f,.37f,.045f),mail,120,field);GUI.Label(R(.315f,.69f,.14f,.04f),"ISSUE TYPE",lab);Rect ir=R(.315f,.73f,.37f,.045f);if(GUI.Button(ir,issues[issue]+"    ▾",field))issue=(issue+1)%issues.Length;B(.425f,.805f,.15f,.062f,"SEND",Send);B(.44f,.88f,.12f,.055f,"BACK",()=>s=S.Menu);}
-void Game(){Brand("LEVEL 0");Rect p=R(.3f,.38f,.4f,.25f);P(p);GUI.Label(new Rect(p.x,p.y+35,p.width,45),gameMsg,center);B(.42f,.64f,.16f,.06f,"MAIN MENU",()=>s=S.Menu);}
-void Brand(string h){Glow(R(0,.045f,1,.09f),"DESOLATION:",title);Glow(R(0,.13f,1,.045f),"THE BACKROOMS",sub);if(h!="")Glow(R(0,.215f,1,.06f),h,sub);}
-void Card(float x,string h,string d,Action a){Rect r=R(x,.38f,.12f,.33f);P(r);GUI.Label(new Rect(r.x,r.y+15,r.width,36),h,center);Line(new Rect(r.x+22,r.y+58,r.width-44,3));GUI.Label(new Rect(r.x+14,r.y+78,r.width-28,60),d,center);Mini(new Rect(r.x+22,r.y+145,r.width-44,75));if(GUI.Button(r,"",ghost))a();}
-float Sl(string t,float y,float v,float mn,float mx,ref bool c){GUI.Label(R(.33f,y-.012f,.16f,.04f),t,lab);Rect tr=R(.455f,y,.17f,.035f);GUI.DrawTexture(new Rect(tr.x,tr.center.y-2,tr.width,4),dark);float old=v,n=Mathf.InverseLerp(mn,mx,v);GUI.DrawTexture(new Rect(tr.x,tr.center.y-2,tr.width*n,4),gold);GUI.DrawTexture(new Rect(tr.x+tr.width*n-6,tr.center.y-9,12,18),gold);v=GUI.HorizontalSlider(new Rect(tr.x-16,tr.y-12,tr.width+32,32),v,mn,mx,ghost,ghost);if(Mathf.Abs(v-old)>.001f){c=true;Apply();}return v;}
-bool B(float x,float y,float w,float h,string t,Action a){Rect r=R(x,y,w,h);bool hit=GUI.Button(r,t,btn);if(hit&&a!=null)a();return hit;}
-void P(Rect r){GUI.DrawTexture(r,dark);Line(new Rect(r.x,r.y,r.width,3));Line(new Rect(r.x,r.yMax-3,r.width,3));Line(new Rect(r.x,r.y,3,r.height));Line(new Rect(r.xMax-3,r.y,3,r.height));}
-void Line(Rect r){GUI.DrawTexture(r,gold);}
-void Mini(Rect r){GUI.DrawTexture(r,clear);P(r);GUI.color=new Color(1,.75f,.12f,.16f);GUI.DrawTexture(new Rect(r.x+r.width*.18f,r.y+8,24,r.height-16),px);GUI.DrawTexture(new Rect(r.x+r.width*.55f,r.y+8,30,r.height-16),px);GUI.color=Color.white;Line(new Rect(r.x+15,r.y+r.height*.55f,r.width-30,3));}
-void Glow(Rect r,string t,GUIStyle st){Color o=st.normal.textColor;st.normal.textColor=new Color(1,.62f,.08f,.28f);GUI.Label(new Rect(r.x-2,r.y,r.width,r.height),t,st);GUI.Label(new Rect(r.x+2,r.y,r.width,r.height),t,st);GUI.Label(new Rect(r.x,r.y-2,r.width,r.height),t,st);GUI.Label(new Rect(r.x,r.y+2,r.width,r.height),t,st);st.normal.textColor=o;GUI.Label(r,t,st);}
-void Toast(){if(Time.realtimeSinceStartup>toastUntil||toast=="")return;Rect r=R(.28f,.915f,.44f,.055f);P(r);GUI.Label(r,toast,center);}
+public sealed class DesolationRuntime : MonoBehaviour
+{
+    enum Screen { Menu, Saves, Settings, Credits, Feedback, Game }
+    Screen current = Screen.Menu;
 
-void Decor(){GUI.color=new Color(0,0,0,.35f);GUI.DrawTexture(R(0,.73f,1,.27f),px);GUI.color=new Color(1,.78f,.18f,.16f);for(int i=0;i<8;i++){float x=.07f+i*.13f;GUI.DrawTexture(R(x,.12f,.045f,.72f),px);GUI.DrawTexture(R(x-.006f,.12f,.057f,.01f),gold);}GUI.color=new Color(1,.84f,.28f,.5f);for(int i=0;i<3;i++){float x=.23f+i*.25f;GUI.DrawTexture(R(x,.10f,.12f,.012f),gold);GUI.color=new Color(1,.75f,.18f,.08f);GUI.DrawTexture(R(x-.03f,.09f,.18f,.05f),px);GUI.color=new Color(1,.84f,.28f,.5f);}GUI.color=Color.white;GUI.Label(R(.04f,.29f,.12f,.06f),"DON'T\nLOOK BACK",lab);}
-void TintByScreen(){if(s==S.Saves||s==S.Feedback){GUI.color=new Color(.15f,.08f,0,.12f);GUI.DrawTexture(R(0,0,1,1),px);GUI.color=Color.white;}}
-void Play(int slot){
-    PlayerPrefs.SetInt("SelectedSaveSlot",slot);
-    PlayerPrefs.SetInt("SaveSlot"+slot+"_Exists",1);
-    PlayerPrefs.Save();
-    gameMsg="SAVE "+slot+" SELECTED - LEVEL 0 READY";
-    s=S.Game;
-}
-void Send(){if(string.IsNullOrWhiteSpace(fb)){toast="WRITE FEEDBACK FIRST";toastUntil=Time.realtimeSinceStartup+2;return;}PlayerPrefs.SetString("LastFeedbackMessage",fb.Trim());PlayerPrefs.SetString("LastFeedbackEmail",mail.Trim());PlayerPrefs.SetString("LastFeedbackIssueType",issues[issue]);PlayerPrefs.Save();fb="";toast="FEEDBACK SAVED LOCALLY";toastUntil=Time.realtimeSinceStartup+2.4f;}
-void Back(){if(s==S.Settings)Save();if(s!=S.Menu){s=S.Menu;toast="";}}
-void Load(){master=PlayerPrefs.GetFloat("MasterVolume",.9f);music=PlayerPrefs.GetFloat("MusicVolume",.75f);sfx=PlayerPrefs.GetFloat("SfxVolume",.85f);bright=PlayerPrefs.GetFloat("Brightness",.9f);sens=PlayerPrefs.GetFloat("Sensitivity",1);gfx=Mathf.Clamp(PlayerPrefs.GetInt("GraphicsQuality",2),0,2);}
-void Save(){PlayerPrefs.SetFloat("MasterVolume",master);PlayerPrefs.SetFloat("MusicVolume",music);PlayerPrefs.SetFloat("SfxVolume",sfx);PlayerPrefs.SetFloat("Brightness",bright);PlayerPrefs.SetFloat("Sensitivity",sens);PlayerPrefs.SetInt("GraphicsQuality",gfx);PlayerPrefs.Save();}
-void Apply(){AudioListener.volume=Mathf.Clamp01(master);Application.targetFrameRate=gfx==0?30:60;if(QualitySettings.names.Length>0)QualitySettings.SetQualityLevel(Mathf.Clamp(gfx,0,QualitySettings.names.Length-1),true);}
-void Tex(){px=T(Color.white);gold=T(new Color(1,.74f,.12f,.95f));dark=T(new Color(0,0,0,.62f));clear=T(new Color(0,0,0,.22f));none=T(new Color(0,0,0,0));}
-Texture2D T(Color c){var t=new Texture2D(1,1,TextureFormat.RGBA32,false);t.SetPixel(0,0,c);t.Apply();return t;}
-void MakeBg(){bg=new Texture2D(512,288,TextureFormat.RGB24,false);for(int y=0;y<288;y++)for(int x=0;x<512;x++){float v=Mathf.PerlinNoise(x*.045f,y*.045f);float d=1f-y/370f;bg.SetPixel(x,y,new Color(.34f*d+.08f*v,.29f*d+.06f*v,.11f*d+.03f*v));}bg.Apply();}
-void Styles(){title=St(44,TextAnchor.MiddleCenter,true);sub=St(20,TextAnchor.MiddleCenter,true);lab=St(16,TextAnchor.MiddleLeft,true);center=St(18,TextAnchor.MiddleCenter,true);btn=St(21,TextAnchor.MiddleCenter,true);btn.normal.background=clear;btn.hover.background=dark;btn.active.background=gold;field=St(15,TextAnchor.UpperLeft,false);field.normal.background=dark;field.focused.background=dark;field.wordWrap=true;field.padding=new RectOffset(8,8,6,6);ghost=new GUIStyle(GUI.skin.button);ghost.normal.background=ghost.hover.background=ghost.active.background=ghost.focused.background=none;ghost.normal.textColor=ghost.hover.textColor=ghost.active.textColor=Color.clear;}
-GUIStyle St(int z,TextAnchor a,bool b){var g=new GUIStyle(GUI.skin.label);g.fontSize=Mathf.Max(12,Mathf.RoundToInt(z*Mathf.Clamp(Screen.height/720f,.75f,1.4f)));g.alignment=a;g.fontStyle=b?FontStyle.Bold:FontStyle.Normal;g.normal.textColor=new Color(1,.82f,.34f);return g;}
-Rect R(float x,float y,float w,float h){return new Rect(Screen.width*x,Screen.height*y,Screen.width*w,Screen.height*h);}
+    // Textures
+    Texture2D px, bg, gold, dark, clear, none, panelBg, highlight;
+
+    // Styles
+    GUIStyle titleStyle, subStyle, headerStyle, labelStyle, buttonStyle,
+             ghostStyle, fieldStyle, centerStyle, slotStyle, smallLabel;
+
+    // Settings
+    float masterVol = 0.9f, musicVol = 0.75f, sfxVol = 0.85f,
+          bright = 0.9f, sens = 1f;
+    int gfx = 2, issueIndex;
+
+    // Feedback
+    string feedbackText = "", emailText = "", toastText = "", gameMsg = "";
+    float toastUntil;
+    readonly string[] issueTypes = { "BUG", "BALANCE", "PERFORMANCE", "IDEA", "OTHER" };
+
+    // Layout metrics (all relative to screen)
+    const float BTN_W = 0.28f;
+    const float BTN_H = 0.072f;
+    const float BTN_GAP = 0.085f;
+    const float BTN_START_Y = 0.355f;
+
+    void Start()
+    {
+        Application.targetFrameRate = 60;
+        Screen.orientation = ScreenOrientation.LandscapeLeft;
+        LoadPrefs();
+        BuildTextures();
+        BuildStyles();
+        BuildBackground();
+        ApplySettings();
+
+        int slot = PlayerPrefs.GetInt("SelectedSaveSlot", 0);
+        if (slot > 0 && PlayerPrefs.GetInt("SaveSlot" + slot + "_Exists", 0) == 1)
+            current = Screen.Game;
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Backspace))
+                Back();
+    }
+
+    void OnGUI()
+    {
+        if (px == null) { BuildTextures(); BuildStyles(); BuildBackground(); }
+
+        // Background
+        GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), bg,
+                         ScaleMode.StretchToFill);
+
+        // Decor (vertical bars, graffiti hint, horizontal gold lines)
+        DrawDecor();
+
+        // Screen tint for certain screens
+        if (current == Screen.Saves || current == Screen.Feedback)
+        {
+            GUI.color = new Color(0.15f, 0.08f, 0f, 0.12f);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), px);
+            GUI.color = Color.white;
+        }
+
+        if (bright < 0.98f)
+        {
+            GUI.color = new Color(0, 0, 0, (1f - bright) * 0.45f);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), px);
+            GUI.color = Color.white;
+        }
+
+        switch (current)
+        {
+            case Screen.Menu:     DrawMenu();     break;
+            case Screen.Saves:    DrawSaves();    break;
+            case Screen.Settings: DrawSettings(); break;
+            case Screen.Credits:  DrawCredits();  break;
+            case Screen.Feedback: DrawFeedback(); break;
+            default:              DrawGame();     break;
+        }
+
+        DrawToast();
+    }
+
+    // ─── TITLE BANNER (shared by all screens) ───
+    void DrawBanner(string pageTitle)
+    {
+        GlowLabel(R(0, 0.042f, 1f, 0.095f), "DESOLATION:", titleStyle);
+        GlowLabel(R(0, 0.13f, 1f, 0.045f), "THE BACKROOMS", subStyle);
+
+        if (!string.IsNullOrEmpty(pageTitle))
+        {
+            GlowLabel(R(0, 0.215f, 1f, 0.058f), pageTitle, headerStyle);
+
+            // Decorative diamonds on each side of page title
+            float tw = pageTitle.Length * 0.018f;
+            float cx = 0.5f;
+            float dy = 0.238f;
+            // Left line + diamond
+            GoldLine(R(cx - tw / 2f - 0.06f, dy, 0.045f, 0.003f));
+            GUI.DrawTexture(R(cx - tw / 2f - 0.012f, dy - 0.006f, 0.01f, 0.01f), gold);
+            // Right line + diamond
+            GoldLine(R(cx + tw / 2f + 0.012f, dy, 0.045f, 0.003f));
+            GUI.DrawTexture(R(cx + tw / 2f + 0.004f, dy - 0.006f, 0.01f, 0.01f), gold);
+        }
+    }
+
+    // ─── MAIN MENU ───
+    void DrawMenu()
+    {
+        DrawBanner("");
+
+        // Gold glow behind buttons
+        GUI.color = new Color(1f, 0.78f, 0.18f, 0.14f);
+        GUI.DrawTexture(R(0.33f, 0.32f, 0.34f, 0.44f), px);
+        GUI.color = Color.white;
+
+        MetalButton(0.36f, BTN_START_Y, BTN_W, BTN_H, "PLAY",     () => current = Screen.Saves);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP, BTN_W, BTN_H, "SETTINGS", () => current = Screen.Settings);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 2f, BTN_W, BTN_H, "CREDITS",  () => current = Screen.Credits);
+        MetalButton(0.36f, BTN_START_Y + BTN_GAP * 3f, BTN_W, BTN_H, "FEEDBACK", () => current = Screen.Feedback);
+    }
+
+    // ─── SAVES ───
+    void DrawSaves()
+    {
+        DrawBanner("SAVES");
+
+        float[] xs = { 0.275f, 0.445f, 0.615f };
+        for (int i = 0; i < 3; i++)
+            DrawSaveSlot(xs[i], 0.37f, 0.14f, 0.34f, "SAVE " + (i + 1),
+                         "Backrooms\nLevel 1", () => Play(i + 1));
+
+        MetalButton(0.42f, 0.78f, 0.16f, 0.06f, "BACK", () => current = Screen.Menu);
+    }
+
+    void DrawSaveSlot(float x, float y, float w, float h, string header,
+                      string desc, Action onClick)
+    {
+        Rect r = R(x, y, w, h);
+
+        // Panel background
+        DrawPanel(r);
+
+        // Header
+        GUI.Label(new Rect(r.x, r.y + 10, r.width, 36), header, headerStyle);
+
+        // Gold divider line
+        GoldLine(new Rect(r.x + 20, r.y + 48, r.width - 40, 3));
+
+        // Description
+        GUI.Label(new Rect(r.x + 10, r.y + 62, r.width - 20, 55), desc, centerStyle);
+
+        // Thumbnail area (small preview image placeholder)
+        Rect thumb = new Rect(r.x + 18, r.y + 125, r.width - 36, 72);
+        GUI.DrawTexture(thumb, dark);
+        // Fake room thumbnail: wallpaper + floor + light
+        GUI.color = new Color(0.55f, 0.48f, 0.2f, 0.6f);
+        GUI.DrawTexture(new Rect(thumb.x, thumb.y, thumb.width, thumb.height * 0.65f), px);
+        GUI.color = new Color(0.18f, 0.12f, 0.05f, 0.8f);
+        GUI.DrawTexture(new Rect(thumb.x, thumb.y + thumb.height * 0.65f,
+                                  thumb.width, thumb.height * 0.35f), px);
+        GUI.color = new Color(1f, 0.85f, 0.35f, 0.5f);
+        GUI.DrawTexture(new Rect(thumb.x + thumb.width * 0.35f, thumb.y + 4,
+                                  thumb.width * 0.3f, 12), px);
+        GUI.color = Color.white;
+        GoldLine(new Rect(thumb.x, thumb.y + thumb.height * 0.65f,
+                           thumb.width, 2));
+
+        // Invisible clickable overlay
+        if (GUI.Button(r, "", onClick != null ? ghostStyle : null) && onClick != null)
+            onClick();
+    }
+
+    // ─── SETTINGS ───
+    void DrawSettings()
+    {
+        DrawBanner("SETTINGS");
+
+        // Panel background
+        Rect panel = R(0.28f, 0.33f, 0.44f, 0.44f);
+        DrawPanel(panel);
+
+        bool changed = false;
+
+        MetalSlider(0.39f, "MASTER VOLUME", masterVol, 0, 1, ref changed);
+        MetalSlider(0.46f, "MUSIC VOLUME", musicVol, 0, 1, ref changed);
+        MetalSlider(0.53f, "SFX VOLUME", sfxVol, 0, 1, ref changed);
+        MetalSlider(0.60f, "BRIGHTNESS", bright, 0.35f, 1.2f, ref changed);
+        MetalSlider(0.67f, "SENSITIVITY", sens, 0.35f, 2f, ref changed);
+
+        // Graphics row
+        GUI.Label(R(0.31f, 0.72f, 0.1f, 0.045f), "GRAPHICS", labelStyle);
+        string[] gfxNames = { "LOW", "MEDIUM", "HIGH" };
+        for (int i = 0; i < 3; i++)
+        {
+            Rect gr = R(0.43f + i * 0.06f, 0.718f, 0.052f, 0.045f);
+            if (gfx == i)
+            {
+                GUI.color = new Color(1f, 0.72f, 0.1f, 0.3f);
+                GUI.DrawTexture(gr, px);
+                GUI.color = Color.white;
+            }
+            if (GUI.Button(gr, gfxNames[i], buttonStyle))
+            {
+                gfx = i;
+                changed = true;
+                ApplySettings();
+            }
+        }
+
+        MetalButton(0.40f, 0.805f, 0.2f, 0.065f, "BACK",
+                    () => { SavePrefs(); current = Screen.Menu; });
+    }
+
+    // ─── CREDITS ───
+    void DrawCredits()
+    {
+        DrawBanner("CREDITS");
+
+        Rect panel = R(0.29f, 0.35f, 0.42f, 0.42f);
+        DrawPanel(panel);
+
+        string[] roles = { "GAME DESIGN", "PROGRAMMING", "UI DESIGN",
+                           "ENVIRONMENT ART", "SOUND DESIGN", "SPECIAL THANKS" };
+        string[] names = { "SOLO DEVELOPER", "SOLO DEVELOPER", "SOLO DEVELOPER",
+                           "SOLO DEVELOPER", "SOLO DEVELOPER", "THE PLAYERS" };
+
+        for (int i = 0; i < roles.Length; i++)
+        {
+            float ry = 0.39f + i * 0.052f;
+            GUI.Label(R(0.33f, ry, 0.16f, 0.04f), roles[i], labelStyle);
+            GoldLine(R(0.49f, ry + 0.022f, 0.06f, 0.003f));
+            GUI.Label(R(0.56f, ry, 0.14f, 0.04f), names[i], labelStyle);
+        }
+
+        MetalButton(0.43f, 0.79f, 0.14f, 0.065f, "BACK", () => current = Screen.Menu);
+    }
+
+    // ─── FEEDBACK ───
+    void DrawFeedback()
+    {
+        DrawBanner("FEEDBACK");
+
+        Rect panel = R(0.27f, 0.35f, 0.46f, 0.46f);
+        DrawPanel(panel);
+
+        GUI.Label(R(0.3f, 0.38f, 0.18f, 0.04f), "YOUR FEEDBACK", labelStyle);
+        feedbackText = GUI.TextArea(R(0.3f, 0.42f, 0.4f, 0.14f), feedbackText, 700, fieldStyle);
+
+        GUI.Label(R(0.3f, 0.58f, 0.2f, 0.04f), "EMAIL (OPTIONAL)", labelStyle);
+        emailText = GUI.TextField(R(0.3f, 0.62f, 0.4f, 0.045f), emailText, 120, fieldStyle);
+
+        GUI.Label(R(0.3f, 0.68f, 0.16f, 0.04f), "ISSUE TYPE", labelStyle);
+        Rect ir = R(0.3f, 0.72f, 0.4f, 0.045f);
+        if (GUI.Button(ir, issueTypes[issueIndex] + "    ▾", fieldStyle))
+            issueIndex = (issueIndex + 1) % issueTypes.Length;
+
+        MetalButton(0.41f, 0.805f, 0.18f, 0.062f, "SEND", SendFeedback);
+        MetalButton(0.43f, 0.88f, 0.14f, 0.055f, "BACK", () => current = Screen.Menu);
+    }
+
+    // ─── GAME SCREEN ───
+    void DrawGame()
+    {
+        DrawBanner("LEVEL 0");
+        Rect panel = R(0.28f, 0.37f, 0.44f, 0.26f);
+        DrawPanel(panel);
+        GUI.Label(new Rect(panel.x, panel.y + 30, panel.width, 50), gameMsg, centerStyle);
+        MetalButton(0.42f, 0.65f, 0.16f, 0.06f, "MAIN MENU", () => current = Screen.Menu);
+    }
+
+    // ─── UI PRIMITIVES ───
+
+    void MetalButton(float x, float y, float w, float h, string text, Action action)
+    {
+        Rect r = R(x, y, w, h);
+
+        // Shadow
+        GUI.color = new Color(0, 0, 0, 0.4f);
+        GUI.DrawTexture(new Rect(r.x + 2, r.y + 2, r.width, r.height), dark);
+        GUI.color = Color.white;
+
+        // Plate background
+        GUI.DrawTexture(r, dark);
+
+        // Gold border
+        GoldBorder(r);
+
+        // Rivets
+        float rv = 5f;
+        GUI.color = new Color(0.7f, 0.7f, 0.68f, 0.9f);
+        GUI.DrawTexture(new Rect(r.x + 4, r.y + 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.xMax - rv - 4, r.y + 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.x + 4, r.yMax - rv - 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.xMax - rv - 4, r.yMax - rv - 4, rv, rv), px);
+        GUI.color = Color.white;
+
+        // Text
+        GUI.Label(r, text, buttonStyle);
+
+        // Click
+        if (GUI.Button(r, "", ghostStyle) && action != null)
+            action();
+    }
+
+    void MetalSlider(float y, string label, float value, float min, float max,
+                     ref bool changed)
+    {
+        Rect labelRect = R(0.31f, y - 0.012f, 0.18f, 0.04f);
+        GUI.Label(labelRect, label, labelStyle);
+
+        // Slider track background
+        Rect track = R(0.45f, y, 0.2f, 0.035f);
+        GUI.DrawTexture(new Rect(track.x, track.center.y - 2, track.width, 4), dark);
+
+        // Gold fill
+        float t = Mathf.InverseLerp(min, max, value);
+        GUI.DrawTexture(new Rect(track.x, track.center.y - 2, track.width * t, 4), gold);
+
+        // Knob
+        float kx = track.x + track.width * t - 6;
+        GUI.DrawTexture(new Rect(kx, track.center.y - 9, 12, 18), gold);
+
+        // Invisible slider for interaction
+        Rect hit = new Rect(track.x - 16, track.y - 12, track.width + 32, 32);
+        float newValue = GUI.HorizontalSlider(hit, value, min, max, ghostStyle, ghostStyle);
+        if (Mathf.Abs(newValue - value) > 0.001f)
+        {
+            value = newValue;
+            changed = true;
+            ApplySettings();
+        }
+    }
+
+    void DrawPanel(Rect r)
+    {
+        // Background
+        GUI.DrawTexture(r, panelBg);
+        // Gold border
+        GoldBorder(r);
+        // Corner rivets
+        float rv = 5f;
+        GUI.color = new Color(0.7f, 0.7f, 0.68f, 0.85f);
+        GUI.DrawTexture(new Rect(r.x + 4, r.y + 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.xMax - rv - 4, r.y + 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.x + 4, r.yMax - rv - 4, rv, rv), px);
+        GUI.DrawTexture(new Rect(r.xMax - rv - 4, r.yMax - rv - 4, rv, rv), px);
+        GUI.color = Color.white;
+    }
+
+    void GoldBorder(Rect r)
+    {
+        GoldLine(new Rect(r.x, r.y, r.width, 3));
+        GoldLine(new Rect(r.x, r.yMax - 3, r.width, 3));
+        GoldLine(new Rect(r.x, r.y, 3, r.height));
+        GoldLine(new Rect(r.xMax - 3, r.y, 3, r.height));
+    }
+
+    void GoldLine(Rect r) { GUI.DrawTexture(r, gold); }
+
+    void GlowLabel(Rect r, string text, GUIStyle style)
+    {
+        Color c = style.normal.textColor;
+        // Glow passes
+        style.normal.textColor = new Color(1f, 0.62f, 0.08f, 0.28f);
+        GUI.Label(new Rect(r.x - 2, r.y, r.width, r.height), text, style);
+        GUI.Label(new Rect(r.x + 2, r.y, r.width, r.height), text, style);
+        GUI.Label(new Rect(r.x, r.y - 2, r.width, r.height), text, style);
+        GUI.Label(new Rect(r.x, r.y + 2, r.width, r.height), text, style);
+        // Main text
+        style.normal.textColor = c;
+        GUI.Label(r, text, style);
+    }
+
+    void DrawDecor()
+    {
+        // Dark bottom band
+        GUI.color = new Color(0, 0, 0, 0.35f);
+        GUI.DrawTexture(R(0, 0.73f, 1f, 0.27f), px);
+        GUI.color = Color.white;
+
+        // Vertical gold bars on left
+        GUI.color = new Color(1f, 0.78f, 0.18f, 0.16f);
+        for (int i = 0; i < 8; i++)
+        {
+            float x = 0.07f + i * 0.13f;
+            GUI.DrawTexture(R(x, 0.12f, 0.045f, 0.72f), px);
+            GUI.DrawTexture(R(x - 0.006f, 0.12f, 0.057f, 0.01f), gold);
+        }
+
+        // Horizontal gold accent lines
+        GUI.color = new Color(1f, 0.84f, 0.28f, 0.5f);
+        for (int i = 0; i < 3; i++)
+        {
+            float x = 0.23f + i * 0.25f;
+            GUI.DrawTexture(R(x, 0.10f, 0.12f, 0.012f), gold);
+            GUI.color = new Color(1f, 0.75f, 0.18f, 0.08f);
+            GUI.DrawTexture(R(x - 0.03f, 0.09f, 0.18f, 0.05f), px);
+            GUI.color = new Color(1f, 0.84f, 0.28f, 0.5f);
+        }
+
+        GUI.color = Color.white;
+
+        // Graffiti text
+        GUI.Label(R(0.04f, 0.29f, 0.12f, 0.06f), "DON'T\nLOOK BACK", labelStyle);
+    }
+
+    void DrawToast()
+    {
+        if (Time.realtimeSinceStartup > toastUntil || toastText == "") return;
+        Rect r = R(0.28f, 0.915f, 0.44f, 0.055f);
+        DrawPanel(r);
+        GUI.Label(r, toastText, centerStyle);
+    }
+
+    // ─── ACTIONS ───
+    void Play(int slot)
+    {
+        PlayerPrefs.SetInt("SelectedSaveSlot", slot);
+        PlayerPrefs.SetInt("SaveSlot" + slot + "_Exists", 1);
+        PlayerPrefs.Save();
+        gameMsg = "SAVE " + slot + " SELECTED - LEVEL 0 READY";
+        current = Screen.Game;
+    }
+
+    void SendFeedback()
+    {
+        if (string.IsNullOrWhiteSpace(feedbackText))
+        {
+            toastText = "WRITE FEEDBACK FIRST";
+            toastUntil = Time.realtimeSinceStartup + 2f;
+            return;
+        }
+        PlayerPrefs.SetString("LastFeedbackMessage", feedbackText.Trim());
+        PlayerPrefs.SetString("LastFeedbackEmail", emailText.Trim());
+        PlayerPrefs.SetString("LastFeedbackIssueType", issueTypes[issueIndex]);
+        PlayerPrefs.Save();
+        feedbackText = "";
+        toastText = "FEEDBACK SAVED LOCALLY";
+        toastUntil = Time.realtimeSinceStartup + 2.4f;
+    }
+
+    void Back()
+    {
+        if (current == Screen.Settings) SavePrefs();
+        if (current != Screen.Menu)
+        {
+            current = Screen.Menu;
+            toastText = "";
+        }
+    }
+
+    // ─── PREFS ───
+    void LoadPrefs()
+    {
+        masterVol = PlayerPrefs.GetFloat("MasterVolume", 0.9f);
+        musicVol  = PlayerPrefs.GetFloat("MusicVolume", 0.75f);
+        sfxVol    = PlayerPrefs.GetFloat("SfxVolume", 0.85f);
+        bright    = PlayerPrefs.GetFloat("Brightness", 0.9f);
+        sens      = PlayerPrefs.GetFloat("Sensitivity", 1f);
+        gfx       = Mathf.Clamp(PlayerPrefs.GetInt("GraphicsQuality", 2), 0, 2);
+    }
+
+    void SavePrefs()
+    {
+        PlayerPrefs.SetFloat("MasterVolume", masterVol);
+        PlayerPrefs.SetFloat("MusicVolume", musicVol);
+        PlayerPrefs.SetFloat("SfxVolume", sfxVol);
+        PlayerPrefs.SetFloat("Brightness", bright);
+        PlayerPrefs.SetFloat("Sensitivity", sens);
+        PlayerPrefs.SetInt("GraphicsQuality", gfx);
+        PlayerPrefs.Save();
+    }
+
+    void ApplySettings()
+    {
+        AudioListener.volume = Mathf.Clamp01(masterVol);
+        Application.targetFrameRate = gfx == 0 ? 30 : 60;
+        if (QualitySettings.names.Length > 0)
+            QualitySettings.SetQualityLevel(
+                Mathf.Clamp(gfx, 0, QualitySettings.names.Length - 1), true);
+    }
+
+    // ─── TEXTURES ───
+    void BuildTextures()
+    {
+        px       = Tex(Color.white);
+        gold     = Tex(new Color(1f, 0.74f, 0.12f, 0.95f));
+        dark     = Tex(new Color(0, 0, 0, 0.62f));
+        clear    = Tex(new Color(0, 0, 0, 0.22f));
+        none     = Tex(new Color(0, 0, 0, 0));
+        panelBg  = Tex(new Color(0, 0, 0, 0.72f));
+        highlight = Tex(new Color(1f, 0.78f, 0.18f, 0.2f));
+    }
+
+    Texture2D Tex(Color c)
+    {
+        var t = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        t.SetPixel(0, 0, c);
+        t.Apply();
+        return t;
+    }
+
+    void BuildBackground()
+    {
+        bg = new Texture2D(512, 288, TextureFormat.RGB24, false);
+        for (int y = 0; y < 288; y++)
+            for (int x = 0; x < 512; x++)
+            {
+                float v = Mathf.PerlinNoise(x * 0.045f, y * 0.045f);
+                float d = 1f - y / 370f;
+                bg.SetPixel(x, y, new Color(
+                    0.34f * d + 0.08f * v,
+                    0.29f * d + 0.06f * v,
+                    0.11f * d + 0.03f * v));
+            }
+        bg.Apply();
+    }
+
+    // ─── STYLES ───
+    void BuildStyles()
+    {
+        float s = Mathf.Clamp(Screen.height / 720f, 0.75f, 1.4f);
+
+        titleStyle = St(46, TextAnchor.MiddleCenter, true);
+        subStyle   = St(18, TextAnchor.MiddleCenter, true);
+        headerStyle = St(28, TextAnchor.MiddleCenter, true);
+        labelStyle = St(15, TextAnchor.MiddleLeft, true);
+        centerStyle = St(16, TextAnchor.MiddleCenter, true);
+        buttonStyle = St(20, TextAnchor.MiddleCenter, true);
+        slotStyle  = St(14, TextAnchor.MiddleCenter, true);
+        smallLabel = St(13, TextAnchor.MiddleLeft, false);
+
+        buttonStyle.normal.background = clear;
+        buttonStyle.hover.background  = dark;
+        buttonStyle.active.background = gold;
+        buttonStyle.normal.textColor  = Color.white;
+        buttonStyle.hover.textColor   = Color.white;
+        buttonStyle.active.textColor  = Color.white;
+
+        fieldStyle = St(14, TextAnchor.UpperLeft, false);
+        fieldStyle.normal.background = dark;
+        fieldStyle.focused.background = dark;
+        fieldStyle.wordWrap = true;
+        fieldStyle.padding = new RectOffset(8, 8, 6, 6);
+
+        ghostStyle = new GUIStyle(GUI.skin.button);
+        ghostStyle.normal.background = none;
+        ghostStyle.hover.background  = none;
+        ghostStyle.active.background = none;
+        ghostStyle.focused.background = none;
+        ghostStyle.normal.textColor  = Color.clear;
+        ghostStyle.hover.textColor   = Color.clear;
+        ghostStyle.active.textColor  = Color.clear;
+    }
+
+    GUIStyle St(int size, TextAnchor anchor, bool bold)
+    {
+        var s = new GUIStyle(GUI.skin.label);
+        s.fontSize = Mathf.Max(12, Mathf.RoundToInt(size *
+                             Mathf.Clamp(Screen.height / 720f, 0.75f, 1.4f)));
+        s.alignment = anchor;
+        s.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
+        s.normal.textColor = new Color(1f, 0.82f, 0.34f);
+        return s;
+    }
+
+    Rect R(float x, float y, float w, float h)
+    {
+        return new Rect(Screen.width * x, Screen.height * y,
+                        Screen.width * w, Screen.height * h);
+    }
 }
