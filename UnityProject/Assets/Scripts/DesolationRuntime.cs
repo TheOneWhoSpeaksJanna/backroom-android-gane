@@ -83,6 +83,7 @@ namespace Desolation.UI
 
         // ── TEXTURES ──
         private Texture2D bgTexture;
+        private Texture2D menuBackgroundTexture;
         private Texture2D scanlineTexture;
         private Texture2D panelTexture;
         private Texture2D cardTexture;
@@ -118,6 +119,12 @@ namespace Desolation.UI
             Application.targetFrameRate = 60;
             LoadGameData();
             BuildTextures();
+            LoadMenuBackground();
+        }
+
+        private void LoadMenuBackground()
+        {
+            menuBackgroundTexture = Resources.Load<Texture2D>("Textures/backrooms_corridor_bg");
         }
 
         private void LoadGameData()
@@ -402,9 +409,42 @@ namespace Desolation.UI
         // ═══════════════════════════════════════════
         private void DrawBackground()
         {
-            GUI.color = new Color(1, 1, 1, 0.12f);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), bgTexture, ScaleMode.StretchToFill);
-            GUI.color = Color.white;
+            if (currentScreen == MenuScreen.Main && menuBackgroundTexture != null)
+            {
+                // Cover-mode: fill entire screen, crop to preserve aspect ratio
+                float screenAspect = (float)Screen.width / Screen.height;
+                float imageAspect = (float)menuBackgroundTexture.width / menuBackgroundTexture.height;
+                Rect drawRect;
+                if (screenAspect > imageAspect)
+                {
+                    // Screen is wider — fit to height, crop sides
+                    float h = Screen.height;
+                    float w = h * imageAspect;
+                    float x = (Screen.width - w) * 0.5f;
+                    drawRect = new Rect(x, 0, w, h);
+                }
+                else
+                {
+                    // Screen is taller — fit to width, crop top/bottom
+                    float w = Screen.width;
+                    float h = w / imageAspect;
+                    float y = (Screen.height - h) * 0.5f;
+                    drawRect = new Rect(0, y, w, h);
+                }
+                GUI.color = Color.white;
+                GUI.DrawTexture(drawRect, menuBackgroundTexture, ScaleMode.StretchToFill);
+                // Dark overlay to keep text/buttons readable
+                GUI.color = new Color(0, 0, 0, 0.45f);
+                GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), bgTexture, ScaleMode.StretchToFill);
+                GUI.color = Color.white;
+            }
+            else
+            {
+                // Sub-screens: dark procedural background
+                GUI.color = new Color(1, 1, 1, 0.12f);
+                GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), bgTexture, ScaleMode.StretchToFill);
+                GUI.color = Color.white;
+            }
         }
 
         private void DrawVignette()
