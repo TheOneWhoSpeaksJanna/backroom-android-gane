@@ -13,7 +13,6 @@ public sealed class DesolationBuildSetup : IPreprocessBuildWithReport
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
         EditorBuildSettings.scenes = new[] {
-            new EditorBuildSettingsScene("Assets/Scenes/MainMenu.unity", true),
             new EditorBuildSettingsScene("Assets/Scenes/DesolationBootstrap.unity", true)
         };
     }
